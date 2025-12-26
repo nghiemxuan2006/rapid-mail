@@ -1,0 +1,213 @@
+.page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(340px, 520px) 1fr;
+  gap: clamp(1.5rem, 3vw, 3rem);
+  align-items: center;
+  padding: clamp(1.5rem, 2vw, 2.5rem) clamp(1.5rem, 4vw, 3rem);
+}
+
+.panel {
+  background: rgba(8, 12, 26, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  padding: clamp(1.5rem, 2vw, 2.5rem);
+  box-shadow: 0 20px 80px rgba(0, 0, 0, 0.28);
+  color: #eaf0ff;
+  position: relative;
+  overflow: hidden;
+}
+
+.panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 20% 20%, rgba(104, 209, 255, 0.1), transparent 45%),
+    radial-gradient(circle at 80% 0%, rgba(255, 166, 255, 0.12), transparent 40%);
+  pointer-events: none;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  position: relative;
+  z-index: 1;
+}
+
+.panel h1 {
+  margin: 1rem 0 0.5rem;
+  font-size: clamp(1.9rem, 4vw, 2.4rem);
+  letter-spacing: -0.02em;
+  position: relative;
+  z-index: 1;
+}
+
+.lead {
+  margin: 0 0 1.5rem;
+  color: #c6d3ff;
+  max-width: 36ch;
+  line-height: 1.6;
+  position: relative;
+  z-index: 1;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  position: relative;
+  z-index: 1;
+}
+
+.googleBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+  background: linear-gradient(135deg, #ffffff, #dfe7ff);
+  color: #0c1024;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+}
+
+.googleBtn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+}
+
+.googleBtn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.hint {
+  font-size: 0.95rem;
+  color: #9cb0d8;
+  margin: 0;
+}
+
+.status {
+  margin-top: 1rem;
+  border-radius: 14px;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #eaf0ff;
+  display: grid;
+  gap: 0.5rem;
+  position: relative;
+  z-index: 1;
+}
+
+.status code {
+  padding: 0.6rem;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 10px;
+  word-break: break-all;
+  font-family: "Space Grotesk", "DM Mono", Consolas, monospace;
+}
+
+.status.success {
+  border-color: rgba(72, 221, 134, 0.4);
+}
+
+.status.error {
+  border-color: rgba(255, 123, 123, 0.4);
+}
+
+.ghost {
+  justify-self: start;
+  padding: 0.5rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: transparent;
+  color: #eaf0ff;
+  cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease;
+}
+
+.ghost:hover {
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+}
+
+.side {
+  padding: clamp(1.25rem, 2vw, 2rem);
+  background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.12), transparent 45%),
+    linear-gradient(135deg, #0c1224, #101833 40%, #0b1327 70%, #0d1025);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #e9eeff;
+  box-shadow: 0 20px 80px rgba(0, 0, 0, 0.28);
+  min-height: 460px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #b5c7ff;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  font-weight: 600;
+}
+
+.side h2 {
+  margin: 1rem 0 0.75rem;
+  font-size: clamp(1.5rem, 3vw, 2.05rem);
+  letter-spacing: -0.01em;
+}
+
+.side p {
+  margin: 0 0 1.25rem;
+  color: #c4d2ff;
+  line-height: 1.6;
+}
+
+.side ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.side li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 0.9rem;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.side li::before {
+  content: '•';
+  color: #7ae0ff;
+  font-size: 1.2rem;
+}
+
+@media (max-width: 960px) {
+  .page {
+    grid-template-columns: 1fr;
+  }
+
+  .side {
+    order: -1;
+  }
+}
