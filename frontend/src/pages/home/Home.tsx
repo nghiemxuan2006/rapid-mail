@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import styles from './Home.module.scss'
 import { showNotifications } from '@/utils/showNotification'
+import { useAppDispatch } from '@/app/hook'
+import { sendMailApi } from '@/features/email/emailApi'
 
 const GMAIL_SEND_URL = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send'
 
@@ -26,20 +28,13 @@ function buildRawMessage(to: string, body: string) {
 }
 
 function Home() {
+    const dispatch = useAppDispatch();
+
     const [receiver, setReceiver] = useState('')
     const [content, setContent] = useState('')
     const [sending, setSending] = useState(false)
 
     const handleSend = async () => {
-        const accessToken = localStorage.getItem('access_token')
-
-        if (!accessToken) {
-            showNotifications(
-                'error',
-                'Chưa có access token. Hãy đổi auth code qua backend để lấy token và lưu vào localStorage key access_token.'
-            )
-            return
-        }
 
         if (!receiver.trim()) {
             showNotifications('warning', 'Vui lòng nhập email người nhận')
@@ -54,27 +49,7 @@ function Home() {
         setSending(true)
 
         try {
-            const raw = buildRawMessage(receiver.trim(), content.trim())
-            const response = await fetch(GMAIL_SEND_URL, {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ raw }),
-            })
-
-            if (!response.ok) {
-                let message = 'Gửi email thất bại'
-                try {
-                    const data = await response.json()
-                    message = data.error?.message || message
-                } catch (err) {
-                    console.error('Không đọc được lỗi từ Gmail API', err)
-                }
-                throw new Error(message)
-            }
-
+            await dispatch(sendMailApi({ receivers: [receiver.trim()], content: content.trim() })).unwrap();
             showNotifications('success', 'Đã gửi email thành công')
             setContent('')
         } catch (err) {

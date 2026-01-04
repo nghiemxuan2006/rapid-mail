@@ -21,6 +21,7 @@ const writeLog = {
 }
 const app = express();
 const port = settings.PORT;
+console.log("🚀 ~ settings:", settings)
 
 const swaggerDefinition = {
     openapi: '3.0.0',
@@ -92,8 +93,8 @@ app.use(errorHandler);
 // Create HTTP server to attach Socket.IO
 const server = http.createServer(app);
 
-// // Connect to MongoDB
-// connectMongoDB();
+// Connect to MongoDB
+connectMongoDB();
 
 server.listen(port, () => {
     logger.info(`Express is listening at http://localhost:${port}`);

@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useGoogleLogin } from '@react-oauth/google'
-import { GMAIL_SCOPES } from '@/constants'
+import { CLIENT_ID, GMAIL_SCOPES, BACKEND_BASE_URL } from '@/constants'
 
 export function useGoogleAuth() {
     const [loading, setLoading] = useState(false)
@@ -9,90 +10,29 @@ export function useGoogleAuth() {
     const [refreshToken, setRefreshToken] = useState<string | null>(null)
     const [error, setError] = useState<string | null>(null)
 
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
-    const clientSecret = import.meta.env.VITE_GOOGLE_CLIENT_SECRET
-    const redirectUri = import.meta.env.VITE_GOOGLE_REDIRECT_URI
-    const backendBaseUrl = import.meta.env.VITE_BASE_URL
-    const ready = useMemo(() => Boolean(clientId), [clientId])
+    const navigate = useNavigate()
+    const ready = useMemo(() => Boolean(CLIENT_ID), [CLIENT_ID])
 
     // Đổi auth code lấy access_token qua backend; nếu không có backend, có thể gọi trực tiếp Google token endpoint (cần client_secret, không nên dùng ở production FE)
     const exchangeCodeForTokens = useCallback(
         async (code: string) => {
             setLoading(true)
             try {
-                if (backendBaseUrl) {
-                    const res = await fetch(`${backendBaseUrl}/auth/google/exchange`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ code }),
-                    })
-
-                    if (!res.ok) {
-                        let message = 'Không đổi được token từ backend'
-                        try {
-                            const data = await res.json()
-                            message = data?.message || data?.error || message
-                        } catch (err) {
-                            // ignore parse error
-                        }
-                        throw new Error(message)
-                    }
-
-                    const data = await res.json()
-                    const receivedAccessToken = data.access_token || data.accessToken
-                    const receivedRefreshToken = data.refresh_token || data.refreshToken
-
-                    if (!receivedAccessToken) {
-                        throw new Error('Backend không trả về access_token')
-                    }
-
-                    localStorage.setItem('access_token', receivedAccessToken)
-                    if (receivedRefreshToken) {
-                        localStorage.setItem('refresh_token', receivedRefreshToken)
-                    }
-
-                    setAccessToken(receivedAccessToken)
-                    setRefreshToken(receivedRefreshToken ?? null)
-                    setError(null)
-                    return
+                if (!BACKEND_BASE_URL) {
+                    throw new Error('Thiếu VITE_BASE_URL để gọi backend')
                 }
 
-                // Fallback: đổi trực tiếp với Google token endpoint (cần client_secret và redirect_uri khớp cấu hình OAuth)
-                if (!clientId || !clientSecret || !redirectUri) {
-                    throw new Error('Thiếu client_id/client_secret/redirect_uri để gọi oauth2.googleapis.com/token')
-                }
-
-                const params = new URLSearchParams({
-                    grant_type: 'authorization_code',
-                    code,
-                    client_id: clientId,
-                    client_secret: clientSecret,
-                    redirect_uri: redirectUri,
+                const res = await fetch(`${BACKEND_BASE_URL}/v1/auth/login?authorize_code=${encodeURIComponent(code)}`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' },
                 })
-
-                const res = await fetch('https://oauth2.googleapis.com/token', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: params.toString(),
-                })
-
-                if (!res.ok) {
-                    let message = 'Không đổi được token từ Google token endpoint'
-                    try {
-                        const data = await res.json()
-                        message = data?.error_description || data?.error || message
-                    } catch (err) {
-                        // ignore parse error
-                    }
-                    throw new Error(message)
-                }
 
                 const data = await res.json()
-                const receivedAccessToken = data.access_token
-                const receivedRefreshToken = data.refresh_token
+                const receivedAccessToken = data.access_token || data.accessToken
+                const receivedRefreshToken = data.refresh_token || data.refreshToken
 
                 if (!receivedAccessToken) {
-                    throw new Error('Google không trả về access_token')
+                    throw new Error('Backend không trả về access_token')
                 }
 
                 localStorage.setItem('access_token', receivedAccessToken)
@@ -103,13 +43,14 @@ export function useGoogleAuth() {
                 setAccessToken(receivedAccessToken)
                 setRefreshToken(receivedRefreshToken ?? null)
                 setError(null)
+                navigate('/')
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Không đổi được token')
             } finally {
                 setLoading(false)
             }
         },
-        [backendBaseUrl, clientId, clientSecret, redirectUri]
+        [BACKEND_BASE_URL, navigate]
     )
 
     const login = useGoogleLogin({
@@ -142,7 +83,7 @@ export function useGoogleAuth() {
     })
 
     const signInWithGoogle = useCallback(() => {
-        if (!clientId) {
+        if (!CLIENT_ID) {
             setError('Thiếu VITE_GOOGLE_CLIENT_ID trong file môi trường')
             return
         }
@@ -152,7 +93,7 @@ export function useGoogleAuth() {
         setRefreshToken(null)
         setError(null)
         login()
-    }, [clientId, login])
+    }, [CLIENT_ID, login])
 
     const reset = useCallback(() => {
         setAuthCode(null)
