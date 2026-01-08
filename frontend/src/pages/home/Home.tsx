@@ -3,6 +3,7 @@ import styles from './Home.module.scss'
 import { showNotifications } from '@/utils/showNotification'
 import { useAppDispatch } from '@/app/hook'
 import { sendMailApi } from '@/features/email/emailApi'
+import { Link } from 'react-router-dom'
 
 const GMAIL_SEND_URL = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send'
 
@@ -95,6 +96,9 @@ function Home() {
                         <button onClick={handleSend} disabled={sending}>
                             {sending ? 'Đang gửi...' : 'Gửi email'}
                         </button>
+                        <Link to="/email-template" className={styles.linkBtn}>
+                            🎨 Custom Email Builder
+                        </Link>
                     </div>
 
                     <div className={styles.hint}>
