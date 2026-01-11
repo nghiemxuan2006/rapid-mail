@@ -3,6 +3,11 @@ import logger from '../utils/wiston-log';
 import settings from '../config/env';
 import User from '../models/user.model';
 
+type Recipient = {
+    // id: string;
+    Email: string;
+    [key: string]: string;
+}
 export type EmailBody = {
     content: string;
     receivers: string[];
@@ -32,7 +37,7 @@ const buildRawMessage = (from: string, to: string[], content: string) => {
         `From: ${from}`,
         `To: ${to.join(', ')}`,
         'Subject: Rapid Mail Notification',
-        'Content-Type: text/plain; charset="UTF-8"'
+        'Content-Type: text/html; charset="UTF-8"'
     ];
 
     const message = `${headers.join('\r\n')}\r\n\r\n${content}`;
@@ -141,3 +146,49 @@ export const sendEmail = async ({ content, receivers, userId }: EmailPayload) =>
         messageId: sendResult.messageId
     };
 };
+
+type CustomEmailPayload = {
+    content: string;
+    receivers: Recipient[];
+    userId: string;
+}
+
+const processContent = (content: string, receiver: Recipient, fields: string[]): string => {
+    let preview = structuredClone(content);
+    fields.forEach((field) => {
+        const value = receiver[field] || '';
+        // Replace [FieldName]
+        preview = preview.replace(
+            new RegExp(`\\[${field}\\]`, 'g'),
+            value ? value : `Missing field ${field}`
+        );
+
+        preview = preview.replace(
+            new RegExp(`\\{\\{${field}\\s*\\|\\|\\s*['"]([^'"]+)['"]\\}\\}`, 'g'),
+            value ? value : `Missing field ${field}`
+        );
+    })
+
+    return preview;
+}
+export const sendMultipleEmails = async ({ content, receivers, userId }: CustomEmailPayload) => {
+    if (!content || typeof content !== 'string' || !content.trim()) {
+        throw new BAD_REQUEST_ERROR('content is required');
+    }
+
+    if (!Array.isArray(receivers) || receivers.length === 0) {
+        throw new BAD_REQUEST_ERROR('receivers must be a non-empty array');
+    }
+
+    const fields = Object.keys(receivers[0]);
+
+    receivers.forEach(async (receive) => {
+        const emailAddress = receive['Email'];
+        if (!isValidReceiver(emailAddress)) {
+            throw new BAD_REQUEST_ERROR(`Invalid receiver email: ${emailAddress}`);
+        }
+        const personalizedContent = processContent(content, receive, fields);
+        await sendEmail({ content: personalizedContent, receivers: [emailAddress], userId })
+    })
+
+}

@@ -1,8 +1,12 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import styles from './EmailTemplate.module.scss';
-import MailEditor from '@/components/email-template/MailEditor';
-import FieldsTab from '@/components/email-template/FieldsTab';
-import RecipientsTab from '@/components/email-template/RecipientsTab';
+import MailEditor, { type MailEditorRef } from '@/components/email-template/MailEditor';
+import VariablesPanel from '@/components/email-template/VariablesPanel';
+import PreviewModal from '@/components/email-template/PreviewModal';
+import RecipientsModal from '@/components/email-template/RecipientsModal';
+import { sendMultipleEmailsApi } from '@/features/email/emailApi';
+import { showNotifications } from '@/utils';
+import { useAppDispatch } from '@/app/hook';
 
 export interface Field {
     id: string;
@@ -15,28 +19,20 @@ export interface Recipient {
 }
 
 const EmailTemplate = () => {
+    const dispatch = useAppDispatch();
+    const mailEditorRef = useRef<MailEditorRef>(null);
     const [content, setContent] = useState('');
     const [fields, setFields] = useState<Field[]>([
-        { id: '1', name: 'Name' },
-        { id: '2', name: 'Email' },
-        { id: '3', name: 'Birthday' },
+        { id: 'default-email', name: 'Email' },
     ]);
     const [recipients, setRecipients] = useState<Recipient[]>([
         {
             id: '1',
-            Name: 'John Doe',
-            Email: 'john@example.com',
-            Birthday: '1990-01-15',
-        },
-        {
-            id: '2',
-            Name: 'Jane Smith',
-            Email: 'jane@example.com',
-            Birthday: '1992-05-20',
+            Email: 'meonghiem@gmail.com',
         },
     ]);
-    const [activeTab, setActiveTab] = useState<'fields' | 'recipients'>('fields');
     const [previewIndex, setPreviewIndex] = useState(0);
+    const [isRecipientsModalOpen, setIsRecipientsModalOpen] = useState(false);
     const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
 
     const handleAddField = (fieldName: string) => {
@@ -58,6 +54,12 @@ const EmailTemplate = () => {
         const fieldToDelete = fields.find((f) => f.id === fieldId);
         if (!fieldToDelete) return;
 
+        // Prevent deleting Email field
+        if (fieldToDelete.name.toLowerCase() === 'email') {
+            alert('Email field cannot be deleted as it is required.');
+            return;
+        }
+
         setFields(fields.filter((f) => f.id !== fieldId));
         setRecipients(
             recipients.map((r) => {
@@ -68,8 +70,7 @@ const EmailTemplate = () => {
     };
 
     const handleInsertVariable = (fieldName: string) => {
-        // Variable insertion is now handled directly by MailEditor
-        // This function is kept for backward compatibility
+        mailEditorRef.current?.insertVariable(fieldName);
     };
 
     const handleUpdateRecipient = (
@@ -98,145 +99,77 @@ const EmailTemplate = () => {
         setRecipients(recipients.filter((r) => r.id !== recipientId));
     };
 
+    const onSendEmails = async () => {
+        try {
+            await dispatch(sendMultipleEmailsApi({ receivers: recipients, content })).unwrap();
+            showNotifications('success', 'Đã gửi email thành công đến tất cả người nhận');
+        } catch (err) {
+            showNotifications('error', err instanceof Error ? err.message : 'Gửi email thất bại');
+        }
+    }
+
     return (
         <div className={styles.container}>
             <div className={styles.header}>
                 <h1>Custom Email Content Builder</h1>
-                <p>Design personalized emails by using variables that adapt to each recipient</p>
+                <div className={styles.headerActions}>
+                    <button
+                        className={styles.previewBtn}
+                        onClick={() => setIsPreviewModalOpen(true)}
+                    >
+                        👁️ Preview
+                    </button>
+                    <button
+                        className={styles.recipientsBtn}
+                        onClick={() => setIsRecipientsModalOpen(true)}
+                    >
+                        👥 Manage Recipients ({recipients.length})
+                    </button>
+                </div>
             </div>
 
             <div className={styles.mainContent}>
-                {/* Left: Editor */}
-                <div className={styles.editorSection}>
-                    <MailEditor content={content} onContentChange={setContent} />
+                {/* Left: Variables Panel */}
+                <div className={styles.variablesPanel}>
+                    <VariablesPanel
+                        fields={fields}
+                        recipients={recipients}
+                        onInsert={handleInsertVariable}
+                        onAddField={handleAddField}
+                        onDeleteField={handleDeleteField}
+                    />
                 </div>
 
-                {/* Right: Tabs */}
-                <div className={styles.rightPanel}>
-                    <div className={styles.tabButtons}>
-                        <button
-                            className={`${styles.tabBtn} ${activeTab === 'fields' ? styles.active : ''
-                                }`}
-                            onClick={() => setActiveTab('fields')}
-                        >
-                            Fields
-                        </button>
-                        <button
-                            className={`${styles.tabBtn} ${activeTab === 'recipients' ? styles.active : ''
-                                }`}
-                            onClick={() => setActiveTab('recipients')}
-                        >
-                            Recipients
-                        </button>
-                    </div>
-
-                    <div className={styles.tabContent}>
-                        {activeTab === 'fields' && (
-                            <FieldsTab
-                                fields={fields}
-                                onInsert={handleInsertVariable}
-                                onAddField={handleAddField}
-                                onDeleteField={handleDeleteField}
-                            />
-                        )}
-                        {activeTab === 'recipients' && (
-                            <RecipientsTab
-                                recipients={recipients}
-                                fields={fields}
-                                onUpdateRecipient={handleUpdateRecipient}
-                                onAddRecipient={handleAddRecipient}
-                                onDeleteRecipient={handleDeleteRecipient}
-                            />
-                        )}
-                    </div>
-
-                    {/* Preview Action Button Only */}
-                    <div className={styles.previewAction}>
-                        <button
-                            className={styles.previewBtn}
-                            onClick={() => setIsPreviewModalOpen(true)}
-                        >
-                            Full Screen
-                        </button>
-                    </div>
-
-                    {/* Preview Modal */}
-                    {isPreviewModalOpen && (
-                        <div className={styles.modalOverlay} onClick={() => setIsPreviewModalOpen(false)}>
-                            <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-                                <div className={styles.modalHeader}>
-                                    <h2>Email Preview</h2>
-                                    <button
-                                        className={styles.closeBtn}
-                                        onClick={() => setIsPreviewModalOpen(false)}
-                                    >
-                                        ×
-                                    </button>
-                                </div>
-                                <div className={styles.modalBody}>
-                                    {renderPreview(content, recipients[previewIndex] || {}, fields)}
-                                </div>
-                                {recipients.length > 0 && (
-                                    <div className={styles.modalFooter}>
-                                        <select
-                                            value={previewIndex}
-                                            onChange={(e) => setPreviewIndex(Number(e.target.value))}
-                                            className={styles.modalRecipientSelector}
-                                        >
-                                            {recipients.map((r, idx) => (
-                                                <option key={r.id} value={idx}>
-                                                    {r[fields[0]?.name] || `Recipient ${idx + 1}`}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
+                {/* Right: Editor */}
+                <div className={styles.editorSection}>
+                    <MailEditor ref={mailEditorRef} content={content} onContentChange={setContent} />
                 </div>
             </div>
+
+            {/* Preview Modal */}
+            <PreviewModal
+                isOpen={isPreviewModalOpen}
+                onClose={() => setIsPreviewModalOpen(false)}
+                content={content}
+                recipients={recipients}
+                fields={fields}
+                previewIndex={previewIndex}
+                onPreviewIndexChange={setPreviewIndex}
+                onSend={onSendEmails}
+            />
+
+            {/* Recipients Modal */}
+            <RecipientsModal
+                isOpen={isRecipientsModalOpen}
+                onClose={() => setIsRecipientsModalOpen(false)}
+                recipients={recipients}
+                fields={fields}
+                onUpdateRecipient={handleUpdateRecipient}
+                onAddRecipient={handleAddRecipient}
+                onDeleteRecipient={handleDeleteRecipient}
+            />
         </div>
     );
 };
-
-// Helper function to render preview content with HTML
-function renderPreview(
-    htmlContent: string,
-    recipient: Recipient,
-    fields: Field[]
-) {
-    let preview = htmlContent;
-
-    // Replace variables in format [FieldName] or {{FieldName || 'fallback'}}
-    fields.forEach((field) => {
-        const value = recipient[field.name] || '';
-
-        // Replace [FieldName]
-        preview = preview.replace(
-            new RegExp(`\\[${field.name}\\]`, 'g'),
-            value || `<span style="color: #ccc; background: #f0f0f0;">[${field.name}]</span>`
-        );
-
-        // Replace {{FieldName || 'fallback'}}
-        preview = preview.replace(
-            new RegExp(`\\{\\{${field.name}\\s*\\|\\|\\s*['"]([^'"]+)['"]\\}\\}`, 'g'),
-            (_match, fallback) => value || fallback
-        );
-    });
-
-    return (
-        <div
-            className="preview-text"
-            dangerouslySetInnerHTML={{ __html: preview }}
-            style={{
-                padding: '12px',
-                backgroundColor: '#f9f9f9',
-                borderRadius: '4px',
-                lineHeight: '1.6',
-            }}
-        />
-    );
-}
 
 export default EmailTemplate;

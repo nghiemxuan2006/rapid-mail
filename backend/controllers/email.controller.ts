@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { sendEmail } from '../services/email.service';
+import { sendEmail, sendMultipleEmails } from '../services/email.service';
 import { UNAUTHORIZED_ERROR } from '../utils/error';
 
 export const submitEmail = async (req: Request, res: Response, next: NextFunction) => {
@@ -21,3 +21,20 @@ export const submitEmail = async (req: Request, res: Response, next: NextFunctio
         next(error);
     }
 };
+
+export const submitMultipleEmails = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { content, receivers } = req.body;
+        const userId = req.user?.sub as string | undefined;
+        if (!userId) {
+            throw new UNAUTHORIZED_ERROR('Missing user context');
+        }
+        await sendMultipleEmails({ content, receivers, userId });
+
+        res.json({
+            message: 'All emails accepted'
+        });
+    } catch (error) {
+        next(error);
+    }
+}

@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react';
 import Quill from 'quill';
 import 'quill/dist/quill.snow.css';
 import styles from './MailEditor.module.scss';
@@ -8,7 +8,11 @@ interface MailEditorProps {
     onContentChange: (content: string) => void;
 }
 
-const MailEditor = ({ content, onContentChange }: MailEditorProps) => {
+export interface MailEditorRef {
+    insertVariable: (fieldName: string) => void;
+}
+
+const MailEditor = forwardRef<MailEditorRef, MailEditorProps>(({ content, onContentChange }, ref) => {
     const editorRef = useRef<HTMLDivElement>(null);
     const quillRef = useRef<Quill | null>(null);
     const [errors, setErrors] = useState<string[]>([]);
@@ -96,13 +100,10 @@ const MailEditor = ({ content, onContentChange }: MailEditorProps) => {
         quillRef.current.focus();
     };
 
-    // Expose insertVariable to parent via window object for FieldsTab to call
-    useEffect(() => {
-        (window as any).insertVariable = insertVariable;
-        return () => {
-            delete (window as any).insertVariable;
-        };
-    }, []);
+    // Expose insertVariable to parent via ref
+    useImperativeHandle(ref, () => ({
+        insertVariable
+    }));
 
     const characterCount = quillRef.current?.getText().length || 0;
 
@@ -134,6 +135,8 @@ const MailEditor = ({ content, onContentChange }: MailEditorProps) => {
             </div>
         </div>
     );
-};
+});
+
+MailEditor.displayName = 'MailEditor';
 
 export default MailEditor;
