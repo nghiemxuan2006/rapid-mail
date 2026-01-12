@@ -2,12 +2,8 @@ import { BAD_REQUEST_ERROR, UNAUTHORIZED_ERROR } from '../utils/error';
 import logger from '../utils/wiston-log';
 import settings from '../config/env';
 import User from '../models/user.model';
+import { Recipient, MutipleEmailsPostRequestType } from '../schema/email.schema';
 
-type Recipient = {
-    // id: string;
-    Email: string;
-    [key: string]: string;
-}
 export type EmailBody = {
     content: string;
     receivers: string[];
@@ -147,9 +143,7 @@ export const sendEmail = async ({ content, receivers, userId }: EmailPayload) =>
     };
 };
 
-type CustomEmailPayload = {
-    content: string;
-    receivers: Recipient[];
+type CustomEmailPayload = MutipleEmailsPostRequestType & {
     userId: string;
 }
 

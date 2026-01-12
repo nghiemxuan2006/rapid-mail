@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { sendEmail, sendMultipleEmails } from '../services/email.service';
 import { UNAUTHORIZED_ERROR } from '../utils/error';
+import { MutipleEmailsPostRequestType } from '../schema/email.schema';
 
 export const submitEmail = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -22,7 +23,7 @@ export const submitEmail = async (req: Request, res: Response, next: NextFunctio
     }
 };
 
-export const submitMultipleEmails = async (req: Request, res: Response, next: NextFunction) => {
+export const submitMultipleEmails = async (req: Request<{}, {}, MutipleEmailsPostRequestType>, res: Response, next: NextFunction) => {
     try {
         const { content, receivers } = req.body;
         const userId = req.user?.sub as string | undefined;

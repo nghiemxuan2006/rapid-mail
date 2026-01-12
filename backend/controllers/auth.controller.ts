@@ -2,8 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import { loginWithGoogle, refreshAppToken } from '../services/auth.service';
 import { BAD_REQUEST_ERROR } from '../utils/error';
 import { extractToken } from '../utils/token';
+import { LoginInput } from '../schema/login.schema';
 
-const login = async (req: Request, res: Response, next: NextFunction) => {
+const login = async (req: Request<{}, {}, {}, LoginInput>, res: Response, next: NextFunction) => {
     try {
         const authorizeCode = req.query.authorize_code;
 

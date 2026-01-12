@@ -1,6 +1,6 @@
 import { RequestHandler } from 'express';
 import { ZodTypeAny, z } from 'zod';
-import { BAD_REQUEST_ERROR } from '../utils/error';
+import { UNPROCESSABLE_ENTITY_ERROR } from '../utils/error';
 
 const validate = (
   schema: ZodTypeAny,
@@ -13,7 +13,7 @@ const validate = (
     } catch (err) {
       if (err instanceof z.ZodError) {
         const errorMessage = err.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join(', ');
-        next(new BAD_REQUEST_ERROR(errorMessage));
+        next(new UNPROCESSABLE_ENTITY_ERROR(errorMessage));
       } else {
         next(err);
       }
