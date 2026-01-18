@@ -147,10 +147,10 @@ type CustomEmailPayload = MutipleEmailsPostRequestType & {
     userId: string;
 }
 
-const processContent = (content: string, receiver: Recipient, fields: string[]): string => {
+const processContent = (content: string, recipient: Recipient, fields: string[]): string => {
     let preview = structuredClone(content);
     fields.forEach((field) => {
-        const value = receiver[field] || '';
+        const value = recipient[field] || '';
         // Replace [FieldName]
         preview = preview.replace(
             new RegExp(`\\[${field}\\]`, 'g'),
@@ -165,23 +165,22 @@ const processContent = (content: string, receiver: Recipient, fields: string[]):
 
     return preview;
 }
-export const sendMultipleEmails = async ({ content, receivers, userId }: CustomEmailPayload) => {
+export const sendMultipleEmails = async ({ content, recipients, userId }: CustomEmailPayload) => {
     if (!content || typeof content !== 'string' || !content.trim()) {
         throw new BAD_REQUEST_ERROR('content is required');
     }
 
-    if (!Array.isArray(receivers) || receivers.length === 0) {
-        throw new BAD_REQUEST_ERROR('receivers must be a non-empty array');
+    if (!Array.isArray(recipients) || recipients.length === 0) {
+        throw new BAD_REQUEST_ERROR('recipients must be a non-empty array');
     }
 
-    const fields = Object.keys(receivers[0]);
-
-    receivers.forEach(async (receive) => {
-        const emailAddress = receive['Email'];
+    const fields = Object.keys(recipients[0]);
+    recipients.forEach(async (recipient) => {
+        const emailAddress = recipient['Email'];
         if (!isValidReceiver(emailAddress)) {
             throw new BAD_REQUEST_ERROR(`Invalid receiver email: ${emailAddress}`);
         }
-        const personalizedContent = processContent(content, receive, fields);
+        const personalizedContent = processContent(content, recipient, fields);
         await sendEmail({ content: personalizedContent, receivers: [emailAddress], userId })
     })
 

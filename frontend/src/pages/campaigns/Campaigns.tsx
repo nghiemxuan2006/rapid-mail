@@ -1,99 +1,101 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import styles from './Campaigns.module.scss';
 import EmailTemplate from '@/pages/email-template/EmailTemplate';
-
-interface Campaign {
-    id: string;
-    name: string;
-    subject: string;
-    status: 'draft' | 'sent' | 'scheduled';
-    recipientCount: number;
-    createdAt: string;
-}
+import type { Campaign, CampaignCreateInput } from '@/schema/campaign';
+import { useAppDispatch } from '@/app/hook';
+import { createCampaignApi, getCampaignsApi, updateCampaignApi } from '@/features/campaign/campaignApi';
+import { DuplicateIcon } from '@/assets/icons';
 
 const Campaigns = () => {
-    const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
-    const [campaigns, setCampaigns] = useState<Campaign[]>([
-        {
-            id: '1',
-            name: 'Welcome Email Campaign',
-            subject: 'Welcome to RapidMail!',
-            status: 'draft',
-            recipientCount: 150,
-            createdAt: '2026-01-15',
-        },
-        {
-            id: '2',
-            name: 'Product Launch Announcement',
-            subject: 'Introducing Our New Product',
-            status: 'sent',
-            recipientCount: 320,
-            createdAt: '2026-01-10',
-        },
-        {
-            id: '3',
-            name: 'Monthly Newsletter',
-            subject: 'January Newsletter',
-            status: 'scheduled',
-            recipientCount: 500,
-            createdAt: '2026-01-12',
-        },
-    ]);
+    const dispatch = useAppDispatch();
+    const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
+    const [isCreatingNew, setIsCreatingNew] = useState(false);
+    const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+
+    useEffect(() => {
+        // Fetch campaigns from API or use mock data
+        const fetchCampaigns = async () => {
+            try {
+                const res = await dispatch(getCampaignsApi()).unwrap();
+                setCampaigns(res);
+            } catch (error) {
+                console.error('Failed to fetch campaigns:', error);
+            }
+        };
+        fetchCampaigns();
+    }, []);
 
     const handleCreateCampaign = () => {
-        const newCampaign: Campaign = {
-            id: Date.now().toString(),
-            name: 'New Campaign',
-            subject: 'Email Subject',
-            status: 'draft',
-            recipientCount: 0,
-            createdAt: new Date().toISOString().split('T')[0],
-        };
-        setCampaigns([newCampaign, ...campaigns]);
-        setSelectedCampaign(newCampaign.id);
+        setSelectedCampaign(null);
+        setIsCreatingNew(true);
     };
 
     const handleCampaignClick = (campaignId: string) => {
-        setSelectedCampaign(campaignId);
+        const campaign = campaigns.find(c => c._id === campaignId);
+        if (campaign) {
+            setSelectedCampaign(campaign);
+            setIsCreatingNew(false);
+        }
     };
 
-    const handleCloseCampaign = () => {
+    const handleBackToCampaigns = () => {
         setSelectedCampaign(null);
+        setIsCreatingNew(false);
     };
 
-    const getStatusBadgeClass = (status: Campaign['status']) => {
-        switch (status) {
-            case 'draft':
-                return styles.statusDraft;
-            case 'sent':
-                return styles.statusSent;
-            case 'scheduled':
-                return styles.statusScheduled;
-            default:
-                return '';
+    const handleCreateCampaignSubmit = async (newCampaign: CampaignCreateInput) => {
+        try {
+            const res = await dispatch(createCampaignApi(newCampaign)).unwrap();
+            setCampaigns([res, ...campaigns]);
+            setSelectedCampaign(null);
+            setIsCreatingNew(false);
+            console.log('Campaign created:', newCampaign);
+        } catch (error) {
+            console.error('Failed to create campaign:', error);
         }
     };
 
-    const getStatusText = (status: Campaign['status']) => {
-        switch (status) {
-            case 'draft':
-                return 'Nháp';
-            case 'sent':
-                return 'Đã gửi';
-            case 'scheduled':
-                return 'Đã lên lịch';
-            default:
-                return status;
+    const handleUpdateCampaign = async (updatedCampaign: Campaign) => {
+        try {
+            // TODO: Call API to update campaign
+            await dispatch(updateCampaignApi(updatedCampaign)).unwrap();
+            setCampaigns(campaigns.map(c =>
+                c._id === updatedCampaign._id ? updatedCampaign : c
+            ));
+            setSelectedCampaign(null);
+            setIsCreatingNew(false);
+            console.log('Campaign updated:', updatedCampaign);
+        } catch (error) {
+            console.error('Failed to update campaign:', error);
         }
     };
 
-    if (selectedCampaign) {
+    const handleDuplicateCampaign = async (campaign: Campaign, e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent card click event
+        try {
+            const duplicatedCampaign: CampaignCreateInput = {
+                name: `${campaign.name} (Copy)`,
+                subject: campaign.subject,
+                content: campaign.content,
+                recipients: campaign.recipients
+            };
+            const res = await dispatch(createCampaignApi(duplicatedCampaign)).unwrap();
+            setCampaigns([res, ...campaigns]);
+            console.log('Campaign duplicated:', res);
+        } catch (error) {
+            console.error('Failed to duplicate campaign:', error);
+        }
+    };
+
+    if (selectedCampaign || isCreatingNew) {
         return (
             <div className={styles.campaignEditor}>
-                {/* <button className={styles.backButton} onClick={handleCloseCampaign}>
-                    ← Quay lại danh sách
-                </button> */}
-                <EmailTemplate />
+                <EmailTemplate
+                    campaign={selectedCampaign}
+                    onBack={handleBackToCampaigns}
+                    onCreate={handleCreateCampaignSubmit}
+                    onUpdate={handleUpdateCampaign}
+                />
             </div>
         );
     }
@@ -113,21 +115,28 @@ const Campaigns = () => {
                         <p>Chưa có campaign nào. Tạo campaign đầu tiên của bạn!</p>
                     </div>
                 ) : (
-                    campaigns.map((campaign) => (
+                    campaigns.map((campaign, index) => (
                         <div
-                            key={campaign.id}
+                            key={campaign._id || `campaign-${index}`}
                             className={styles.campaignCard}
-                            onClick={() => handleCampaignClick(campaign.id)}
+                            onClick={() => handleCampaignClick(campaign._id)}
                         >
                             <div className={styles.campaignCardHeader}>
                                 <h3>{campaign.name}</h3>
-                                <span className={`${styles.statusBadge} ${getStatusBadgeClass(campaign.status)}`}>
+                                <button
+                                    className={styles.duplicateButton}
+                                    onClick={(e) => handleDuplicateCampaign(campaign, e)}
+                                    title="Duplicate campaign"
+                                >
+                                    <DuplicateIcon className={styles.duplicateIcon} />
+                                </button>
+                                {/* <span className={`${styles.statusBadge} ${getStatusBadgeClass(campaign.status)}`}>
                                     {getStatusText(campaign.status)}
-                                </span>
+                                </span> */}
                             </div>
                             <p className={styles.campaignSubject}>{campaign.subject}</p>
                             <div className={styles.campaignMeta}>
-                                <span>👥 {campaign.recipientCount} người nhận</span>
+                                <span>👥 {campaign.recipients.length} người nhận</span>
                                 <span>📅 {campaign.createdAt}</span>
                             </div>
                         </div>

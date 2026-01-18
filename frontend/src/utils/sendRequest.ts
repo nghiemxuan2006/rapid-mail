@@ -22,6 +22,6 @@ export const sendRequest = async (url: string, method: 'GET' | 'POST' | 'PUT' | 
     } catch (e) {
         console.log(e)
         // showNotifications('error', "Error")
-        return thunkApi.rejectWithValue("Error")
+        throw thunkApi.rejectWithValue("Error")
     }
 }

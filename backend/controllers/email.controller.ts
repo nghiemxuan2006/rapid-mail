@@ -25,12 +25,12 @@ export const submitEmail = async (req: Request, res: Response, next: NextFunctio
 
 export const submitMultipleEmails = async (req: Request<{}, {}, MutipleEmailsPostRequestType>, res: Response, next: NextFunction) => {
     try {
-        const { content, receivers } = req.body;
+        const { content, recipients } = req.body;
         const userId = req.user?.sub as string | undefined;
         if (!userId) {
             throw new UNAUTHORIZED_ERROR('Missing user context');
         }
-        await sendMultipleEmails({ content, receivers, userId });
+        await sendMultipleEmails({ content, recipients, userId });
 
         res.json({
             message: 'All emails accepted'

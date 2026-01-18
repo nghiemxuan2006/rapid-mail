@@ -1,5 +1,6 @@
-import type { Field, Recipient } from '@/pages/email-template/EmailTemplate';
+import type { Field } from '@/pages/email-template/EmailTemplate';
 import styles from './PreviewModal.module.scss';
+import type { Recipient } from '@/schema/campaign';
 
 interface PreviewModalProps {
     isOpen: boolean;
