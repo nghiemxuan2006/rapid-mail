@@ -1,10 +1,8 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import styles from './Header.module.scss';
-import { SearchIcon, UserIcon, BellIcon, SendEmailIcon, CampaignsIcon, HistoryIcon, ContactsIcon, DashboardIcon } from '@/assets/icons';
-
-interface HeaderProps {
-    onMenuClick: () => void;
-}
+import { SearchIcon, UserIcon, BellIcon, CampaignsIcon, HistoryIcon } from '@/assets/icons';
+import { useAppDispatch } from '@/app/hook';
+import { logout } from '@/features/auth/authSlice';
 
 interface NavItem {
     id: string;
@@ -28,9 +26,10 @@ const navItems: NavItem[] = [
     }
 ];
 
-const Header = ({ onMenuClick }: HeaderProps) => {
+const Header = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const dispatch = useAppDispatch();
 
     const handleNavClick = (path: string) => {
         navigate(path);
@@ -38,6 +37,11 @@ const Header = ({ onMenuClick }: HeaderProps) => {
 
     const isActive = (path: string) => {
         return location.pathname === path;
+    };
+
+    const handleLogout = () => {
+        dispatch(logout());
+        navigate('/login');
     };
 
     return (
@@ -65,7 +69,7 @@ const Header = ({ onMenuClick }: HeaderProps) => {
                 <button className={styles.iconButton}>
                     <SearchIcon />
                 </button>
-                <button className={styles.iconButton}>
+                <button className={styles.iconButton} onClick={handleLogout} title="Đăng xuất">
                     <UserIcon />
                 </button>
                 <button className={styles.iconButton}>

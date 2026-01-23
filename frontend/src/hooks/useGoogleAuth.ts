@@ -2,6 +2,8 @@ import { useCallback, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGoogleLogin } from '@react-oauth/google'
 import { CLIENT_ID, GMAIL_SCOPES, BACKEND_BASE_URL } from '@/constants'
+import { useAppDispatch } from '@/app/hook'
+import { setCredentials, setError as setAuthError, setLoading as setAuthLoading } from '@/features/auth/authSlice'
 
 export function useGoogleAuth() {
     const [loading, setLoading] = useState(false)
@@ -11,12 +13,14 @@ export function useGoogleAuth() {
     const [error, setError] = useState<string | null>(null)
 
     const navigate = useNavigate()
+    const dispatch = useAppDispatch()
     const ready = useMemo(() => Boolean(CLIENT_ID), [CLIENT_ID])
 
     // Đổi auth code lấy access_token qua backend; nếu không có backend, có thể gọi trực tiếp Google token endpoint (cần client_secret, không nên dùng ở production FE)
     const exchangeCodeForTokens = useCallback(
         async (code: string) => {
             setLoading(true)
+            dispatch(setAuthLoading(true))
             try {
                 if (!BACKEND_BASE_URL) {
                     throw new Error('Thiếu VITE_BASE_URL để gọi backend')
@@ -35,22 +39,27 @@ export function useGoogleAuth() {
                     throw new Error('Backend không trả về access_token')
                 }
 
-                localStorage.setItem('access_token', receivedAccessToken)
-                if (receivedRefreshToken) {
-                    localStorage.setItem('refresh_token', receivedRefreshToken)
-                }
+                // Lưu vào Redux store
+                dispatch(setCredentials({
+                    accessToken: receivedAccessToken,
+                    refreshToken: receivedRefreshToken,
+                }))
 
                 setAccessToken(receivedAccessToken)
                 setRefreshToken(receivedRefreshToken ?? null)
                 setError(null)
+                dispatch(setAuthError(null))
                 navigate('/')
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'Không đổi được token')
+                const errorMessage = err instanceof Error ? err.message : 'Không đổi được token'
+                setError(errorMessage)
+                dispatch(setAuthError(errorMessage))
             } finally {
                 setLoading(false)
+                dispatch(setAuthLoading(false))
             }
         },
-        [BACKEND_BASE_URL, navigate]
+        [BACKEND_BASE_URL, navigate, dispatch]
     )
 
     const login = useGoogleLogin({
