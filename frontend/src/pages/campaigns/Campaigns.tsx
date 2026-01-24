@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import styles from './Campaigns.module.scss';
 import EmailTemplate from '@/pages/email-template/EmailTemplate';
 import type { Campaign, CampaignCreateInput } from '@/schema/campaign';
@@ -8,48 +9,69 @@ import { DuplicateIcon } from '@/assets/icons';
 
 const Campaigns = () => {
     const dispatch = useAppDispatch();
+    const navigate = useNavigate();
+    const { id } = useParams<{ id: string }>();
+    const location = useLocation();
     const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
     const [isCreatingNew, setIsCreatingNew] = useState(false);
     const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+
+    // Determine if we're on edit/create route immediately
+    const isEditRoute = location.pathname.startsWith('/campaigns/') && !!id;
 
     useEffect(() => {
         // Fetch campaigns from API or use mock data
         const fetchCampaigns = async () => {
+            setIsLoading(true);
             try {
                 const res = await dispatch(getCampaignsApi()).unwrap();
                 setCampaigns(res);
             } catch (error) {
                 console.error('Failed to fetch campaigns:', error);
+            } finally {
+                setIsLoading(false);
             }
         };
         fetchCampaigns();
     }, []);
 
+    // Handle URL params for editing
+    useEffect(() => {
+        if (id && id === 'new') {
+            setSelectedCampaign(null);
+            setIsCreatingNew(true);
+        } else if (id && campaigns.length > 0) {
+            const campaign = campaigns.find(c => c._id === id);
+            if (campaign) {
+                setSelectedCampaign(campaign);
+                setIsCreatingNew(false);
+            }
+        } else if (!id) {
+            // Reset state when navigating back to list
+            setSelectedCampaign(null);
+            setIsCreatingNew(false);
+        }
+    }, [id, campaigns]);
+
     const handleCreateCampaign = () => {
-        setSelectedCampaign(null);
-        setIsCreatingNew(true);
+        navigate('/campaigns/new');
     };
 
     const handleCampaignClick = (campaignId: string) => {
-        const campaign = campaigns.find(c => c._id === campaignId);
-        if (campaign) {
-            setSelectedCampaign(campaign);
-            setIsCreatingNew(false);
-        }
+        navigate(`/campaigns/${campaignId}`);
     };
 
     const handleBackToCampaigns = () => {
-        setSelectedCampaign(null);
-        setIsCreatingNew(false);
+        navigate('/campaigns');
     };
 
     const handleCreateCampaignSubmit = async (newCampaign: CampaignCreateInput) => {
         try {
             const res = await dispatch(createCampaignApi(newCampaign)).unwrap();
             setCampaigns([res, ...campaigns]);
-            setSelectedCampaign(null);
-            setIsCreatingNew(false);
             console.log('Campaign created:', newCampaign);
+            navigate('/campaigns');
         } catch (error) {
             console.error('Failed to create campaign:', error);
         }
@@ -62,9 +84,8 @@ const Campaigns = () => {
             setCampaigns(campaigns.map(c =>
                 c._id === updatedCampaign._id ? updatedCampaign : c
             ));
-            setSelectedCampaign(null);
-            setIsCreatingNew(false);
             console.log('Campaign updated:', updatedCampaign);
+            navigate('/campaigns');
         } catch (error) {
             console.error('Failed to update campaign:', error);
         }
@@ -87,7 +108,8 @@ const Campaigns = () => {
         }
     };
 
-    if (selectedCampaign || isCreatingNew) {
+    // If on edit/create route, render EmailTemplate immediately
+    if (isEditRoute) {
         return (
             <div className={styles.campaignEditor}>
                 <EmailTemplate

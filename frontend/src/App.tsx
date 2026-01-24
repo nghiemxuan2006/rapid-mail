@@ -29,6 +29,14 @@ function App() {
           }
         />
         <Route
+          path="/campaigns/:id"
+          element={
+            <ProtectedRoute>
+              <Campaigns />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/history"
           element={
             <ProtectedRoute>

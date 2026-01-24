@@ -130,9 +130,9 @@ const MailEditor = forwardRef<MailEditorRef, MailEditorProps>(({ content, onCont
                 </div>
             )}
 
-            <div className={styles.footer}>
+            {/* <div className={styles.footer}>
                 <span>Characters: {characterCount}</span>
-            </div>
+            </div> */}
         </div>
     );
 });

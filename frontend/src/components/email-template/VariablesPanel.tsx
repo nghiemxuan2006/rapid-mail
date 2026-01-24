@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import styles from './VariablesPanel.module.scss';
-import type { Field, Recipient } from '@/pages/email-template/EmailTemplate';
+import type { Field } from '@/pages/email-template/EmailTemplate';
+import type { Recipient } from '@/schema/campaign';
 
 interface VariablesPanelProps {
     fields: Field[];
@@ -35,29 +36,6 @@ const VariablesPanel = ({ fields, recipients, onInsert, onAddField, onDeleteFiel
 
     return (
         <div className={styles.container}>
-            <div className={styles.header}>
-                <h3>Variables</h3>
-                <p className={styles.subtitle}>Insert into template</p>
-            </div>
-
-            {/* Data Health Summary */}
-            <div className={styles.healthSummary}>
-                <div className={styles.healthTitle}>Data Health</div>
-                {fields.slice(0, 3).map(field => {
-                    const stats = getFieldStats(field.name);
-                    return (
-                        <div key={field.id} className={styles.healthItem}>
-                            <div className={styles.healthLabel}>
-                                {stats.percentage === 100 ? '✔' : '⚠'}
-                                <span>{field.name}</span>
-                            </div>
-                            <div className={styles.healthValue}>
-                                {stats.percentage}%
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
 
             {/* Variables List */}
             <div className={styles.fieldsList}>
