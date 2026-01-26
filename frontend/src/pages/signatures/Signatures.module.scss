@@ -1,0 +1,286 @@
+.container {
+    padding: 32px;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+
+    h1 {
+        margin: 0;
+        font-size: 32px;
+        font-weight: 700;
+        color: #0f172a;
+    }
+}
+
+.createButton {
+    background: #2563eb;
+    color: #ffffff;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+
+    &:hover {
+        background: #1d4ed8;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
+    }
+}
+
+.loading {
+    text-align: center;
+    padding: 48px;
+    font-size: 18px;
+    color: #64748b;
+}
+
+.emptyState {
+    text-align: center;
+    padding: 64px 32px;
+    
+    p {
+        font-size: 18px;
+        color: #64748b;
+        margin: 0;
+    }
+}
+
+.signatureList {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
+    gap: 24px;
+    
+    @media (max-width: 768px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+.signatureCard {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+    border: 1px solid #e2e8f0;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    position: relative;
+    overflow: hidden;
+
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #2563eb 0%, #7c3aed 100%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    &:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+        border-color: #cbd5e1;
+        
+        &::before {
+            opacity: 1;
+        }
+    }
+}
+
+.cardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #f1f5f9;
+}
+
+.nameSection {
+    flex: 1;
+    min-width: 0;
+}
+
+.signatureName {
+    margin: 0 0 6px 0;
+    font-size: 22px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.3;
+    word-wrap: break-word;
+}
+
+.email {
+    margin: 0;
+    font-size: 14px;
+    color: #64748b;
+    font-weight: 500;
+    word-break: break-all;
+}
+
+.cardActions {
+    display: flex;
+    gap: 8px;
+}
+
+.actionButton {
+    background: transparent;
+    border: 1px solid #cbd5e1;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+        background: #f1f5f9;
+        border-color: #94a3b8;
+        color: #0f172a;
+    }
+}
+
+.signatureContent {
+    padding: 24px;
+    background: #ffffff;
+    border-radius: 12px;
+    border: 2px solid #e2e8f0;
+    min-height: 150px;
+    max-height: 450px;
+    overflow: auto;
+    position: relative;
+    
+    // Custom scrollbar
+    &::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    
+    &::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 4px;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+        
+        &:hover {
+            background: #94a3b8;
+        }
+    }
+    
+    // Style for signature HTML content
+    :global {
+        // Scale down large signatures
+        transform: scale(0.85);
+        transform-origin: top left;
+        width: 117.65%; // 100 / 0.85
+        
+        table {
+            border-collapse: collapse;
+            max-width: 100%;
+            margin: 0;
+        }
+        
+        img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        p {
+            margin: 0;
+            padding: 2px 0;
+            word-wrap: break-word;
+        }
+        
+        a {
+            color: #2563eb;
+            text-decoration: none;
+            word-break: break-all;
+            
+            &:hover {
+                text-decoration: underline;
+            }
+        }
+        
+        div {
+            max-width: 100%;
+        }
+        
+        // Override inline styles that might cause overflow
+        * {
+            max-width: 100% !important;
+            box-sizing: border-box;
+        }
+    }
+}
+
+.cardFooter {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    padding-top: 16px;
+    border-top: 2px solid #f1f5f9;
+}
+
+.badges {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 16px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    
+    &:nth-child(1) {
+        background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+        color: #ffffff;
+        
+        &:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+        }
+    }
+    
+    &:nth-child(2) {
+        background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+        color: #ffffff;
+        
+        &:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+    }
+    
+    &:only-child {
+        background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+    }
+}

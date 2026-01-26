@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import styles from './Header.module.scss';
-import { SearchIcon, UserIcon, BellIcon, CampaignsIcon, HistoryIcon } from '@/assets/icons';
+import { SearchIcon, UserIcon, BellIcon, CampaignsIcon, HistoryIcon, SignatureIcon } from '@/assets/icons';
 import { useAppDispatch } from '@/app/hook';
 import { logout } from '@/features/auth/authSlice';
 
@@ -17,6 +17,12 @@ const navItems: NavItem[] = [
         label: 'Campaigns',
         icon: CampaignsIcon,
         path: '/campaigns',
+    },
+    {
+        id: 'signatures',
+        label: 'Signatures',
+        icon: SignatureIcon,
+        path: '/signatures',
     },
     {
         id: 'history',

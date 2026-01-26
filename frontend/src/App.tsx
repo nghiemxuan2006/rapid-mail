@@ -4,6 +4,7 @@ import NotFoundPage from "@/pages/404";
 import { ToastContainer } from 'react-toastify';
 import Login from '@/pages/login/Login';
 import Campaigns from '@/pages/campaigns/Campaigns';
+import Signatures from '@/pages/signatures/Signatures';
 import MainLayout from '@/components/layout/MainLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
 
@@ -41,6 +42,14 @@ function App() {
           element={
             <ProtectedRoute>
               <MainLayout><div>History Page</div></MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/signatures"
+          element={
+            <ProtectedRoute>
+              <MainLayout><Signatures /></MainLayout>
             </ProtectedRoute>
           }
         />
