@@ -17,3 +17,16 @@ export const getSignaturesApi = createAsyncThunk<Signature[], void>(
         return res.data.sendAs
     }
 )
+
+export interface UpdateSignaturePayload {
+    sendAsEmail: string;
+    signature: string;
+}
+
+export const updateSignatureApi = createAsyncThunk<Signature, UpdateSignaturePayload>(
+    'api/update-signature',
+    async (payload, thunkApi) => {
+        const res = await sendRequest(`signatures/`, 'PUT', payload, thunkApi)
+        return res.data
+    }
+)

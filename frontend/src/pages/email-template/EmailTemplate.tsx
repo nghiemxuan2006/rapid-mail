@@ -141,7 +141,7 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
 
     const onSendEmails = async () => {
         try {
-            await dispatch(sendMultipleEmailsApi({ receivers: recipients, content })).unwrap();
+            await dispatch(sendMultipleEmailsApi({ recipients, content })).unwrap();
             showNotifications('success', 'Đã gửi email thành công đến tất cả người nhận');
         } catch (err) {
             showNotifications('error', err instanceof Error ? err.message : 'Gửi email thất bại');

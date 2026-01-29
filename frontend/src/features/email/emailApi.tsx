@@ -1,9 +1,9 @@
-import type { Recipient } from "@/pages/email-template/EmailTemplate";
+import type { Recipient } from "@/schema/campaign";
 import { sendRequest } from "@/utils";
 import { createAsyncThunk } from "@reduxjs/toolkit";
 
 interface SendEmailRequestType {
-    receivers: Array<string>,
+    recipients: Array<string>,
     content: string
 }
 export const sendMailApi = createAsyncThunk<void, SendEmailRequestType>(
@@ -15,7 +15,7 @@ export const sendMailApi = createAsyncThunk<void, SendEmailRequestType>(
 )
 
 interface sendMultipleEmailsRequestType {
-    receivers: Array<Recipient>,
+    recipients: Array<Recipient>,
     content: string
 }
 

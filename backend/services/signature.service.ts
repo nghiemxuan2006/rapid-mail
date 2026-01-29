@@ -77,3 +77,51 @@ export const getSignatureList = async (userId: string) => {
     const data = await response.json();
     return data;
 };
+
+export const updateSignatureService = async (userId: string, sendAsEmail: string, signature: string) => {
+    const user = await User.findById(userId);
+
+    if (!user) {
+        throw new UNAUTHORIZED_ERROR('User not found');
+    }
+
+    let accessToken = user.googleAccessToken;
+    const updateUrl = `${GMAIL_SIGNATURE_ENDPOINT}/${encodeURIComponent(sendAsEmail)}`;
+
+    const payload = {
+        signature: signature
+    };
+
+    let response = await fetch(updateUrl, {
+        method: 'PATCH',
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    });
+
+    // If token expired, refresh and retry
+    if (response.status === 401) {
+        accessToken = await refreshGoogleAccessToken(user.googleRefreshToken);
+        user.googleAccessToken = accessToken;
+        await user.save();
+
+        response = await fetch(updateUrl, {
+            method: 'PATCH',
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+    }
+
+    if (!response.ok) {
+        const errorData = await response.json() as { error?: { message?: string } };
+        throw new BAD_REQUEST_ERROR(errorData.error?.message || 'Failed to update signature via Gmail API');
+    }
+
+    const data = await response.json();
+    return data;
+};
