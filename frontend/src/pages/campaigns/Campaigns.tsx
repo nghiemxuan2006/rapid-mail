@@ -4,8 +4,10 @@ import styles from './Campaigns.module.scss';
 import EmailTemplate from '@/pages/email-template/EmailTemplate';
 import type { Campaign, CampaignCreateInput } from '@/schema/campaign';
 import { useAppDispatch } from '@/app/hook';
-import { createCampaignApi, getCampaignsApi, updateCampaignApi } from '@/features/campaign/campaignApi';
-import { DuplicateIcon } from '@/assets/icons';
+import { createCampaignApi, getCampaignsApi, updateCampaignApi, deleteCampaignByIdApi } from '@/features/campaign/campaignApi';
+import { DuplicateIcon, EditIcon, TrashIcon, EllipsisVerticalIcon } from '@/assets/icons';
+import ConfirmModal from '@/components/ConfirmModal';
+import RenameModal from '@/components/RenameModal';
 
 const Campaigns = () => {
     const dispatch = useAppDispatch();
@@ -16,6 +18,13 @@ const Campaigns = () => {
     const [isCreatingNew, setIsCreatingNew] = useState(false);
     const [campaigns, setCampaigns] = useState<Campaign[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+
+    // Modal states
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [showRenameModal, setShowRenameModal] = useState(false);
+    const [selectedCampaignForAction, setSelectedCampaignForAction] = useState<Campaign | null>(null);
+    const [isActionLoading, setIsActionLoading] = useState(false);
+    const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
     // Determine if we're on edit/create route immediately
     const isEditRoute = location.pathname.startsWith('/campaigns/') && !!id;
@@ -53,6 +62,21 @@ const Campaigns = () => {
             setIsCreatingNew(false);
         }
     }, [id, campaigns]);
+
+    // Close dropdown menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as HTMLElement;
+            if (!target.closest('[data-menu-container]')) {
+                setOpenMenuId(null);
+            }
+        };
+
+        if (openMenuId) {
+            document.addEventListener('click', handleClickOutside);
+            return () => document.removeEventListener('click', handleClickOutside);
+        }
+    }, [openMenuId]);
 
     const handleCreateCampaign = () => {
         navigate('/campaigns/new');
@@ -108,6 +132,55 @@ const Campaigns = () => {
         }
     };
 
+    const handleDeleteClick = (campaign: Campaign, e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent card click event
+        setSelectedCampaignForAction(campaign);
+        setShowDeleteModal(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!selectedCampaignForAction) return;
+
+        setIsActionLoading(true);
+        try {
+            await dispatch(deleteCampaignByIdApi({ id: selectedCampaignForAction._id })).unwrap();
+            setCampaigns(campaigns.filter(c => c._id !== selectedCampaignForAction._id));
+            console.log('Campaign deleted:', selectedCampaignForAction);
+            setShowDeleteModal(false);
+            setSelectedCampaignForAction(null);
+        } catch (error) {
+            console.error('Failed to delete campaign:', error);
+        } finally {
+            setIsActionLoading(false);
+        }
+    };
+
+    const handleRenameClick = (campaign: Campaign, e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent card click event
+        setSelectedCampaignForAction(campaign);
+        setShowRenameModal(true);
+    };
+
+    const handleConfirmRename = async (newName: string) => {
+        if (!selectedCampaignForAction) return;
+
+        setIsActionLoading(true);
+        try {
+            const updatedCampaign = { ...selectedCampaignForAction, name: newName };
+            await dispatch(updateCampaignApi(updatedCampaign)).unwrap();
+            setCampaigns(campaigns.map(c =>
+                c._id === selectedCampaignForAction._id ? updatedCampaign : c
+            ));
+            console.log('Campaign renamed:', updatedCampaign);
+            setShowRenameModal(false);
+            setSelectedCampaignForAction(null);
+        } catch (error) {
+            console.error('Failed to rename campaign:', error);
+        } finally {
+            setIsActionLoading(false);
+        }
+    };
+
     // If on edit/create route, render EmailTemplate immediately
     if (isEditRoute) {
         return (
@@ -145,13 +218,55 @@ const Campaigns = () => {
                         >
                             <div className={styles.campaignCardHeader}>
                                 <h3>{campaign.name}</h3>
-                                <button
-                                    className={styles.duplicateButton}
-                                    onClick={(e) => handleDuplicateCampaign(campaign, e)}
-                                    title="Duplicate campaign"
-                                >
-                                    <DuplicateIcon className={styles.duplicateIcon} />
-                                </button>
+                                <div className={styles.menuContainer} data-menu-container>
+                                    <button
+                                        className={styles.menuButton}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setOpenMenuId(openMenuId === campaign._id ? null : campaign._id);
+                                        }}
+                                        title="More actions"
+                                    >
+                                        <EllipsisVerticalIcon className={styles.menuButtonIcon} />
+                                    </button>
+                                    {openMenuId === campaign._id && (
+                                        <div className={styles.dropdownMenu}>
+                                            <button
+                                                className={styles.menuItem}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleRenameClick(campaign, e);
+                                                    setOpenMenuId(null);
+                                                }}
+                                            >
+                                                <EditIcon className={styles.menuIcon} />
+                                                Đổi tên
+                                            </button>
+                                            <button
+                                                className={styles.menuItem}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDuplicateCampaign(campaign, e);
+                                                    setOpenMenuId(null);
+                                                }}
+                                            >
+                                                <DuplicateIcon className={styles.menuIcon} />
+                                                Sao chép
+                                            </button>
+                                            <button
+                                                className={`${styles.menuItem} ${styles.menuItemDanger}`}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteClick(campaign, e);
+                                                    setOpenMenuId(null);
+                                                }}
+                                            >
+                                                <TrashIcon className={styles.menuIcon} />
+                                                Xóa
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                                 {/* <span className={`${styles.statusBadge} ${getStatusBadgeClass(campaign.status)}`}>
                                     {getStatusText(campaign.status)}
                                 </span> */}
@@ -165,6 +280,29 @@ const Campaigns = () => {
                     ))
                 )}
             </div>
+
+            {/* Modals */}
+            <ConfirmModal
+                isOpen={showDeleteModal}
+                title="Xóa Campaign"
+                message={`Bạn có chắc chắn muốn xóa campaign "${selectedCampaignForAction?.name}" không? Hành động này không thể hoàn tác.`}
+                onConfirm={handleConfirmDelete}
+                onCancel={() => {
+                    setShowDeleteModal(false);
+                    setSelectedCampaignForAction(null);
+                }}
+                isLoading={isActionLoading}
+            />
+            <RenameModal
+                isOpen={showRenameModal}
+                currentName={selectedCampaignForAction?.name || ''}
+                onSave={handleConfirmRename}
+                onCancel={() => {
+                    setShowRenameModal(false);
+                    setSelectedCampaignForAction(null);
+                }}
+                isLoading={isActionLoading}
+            />
         </div>
     );
 };

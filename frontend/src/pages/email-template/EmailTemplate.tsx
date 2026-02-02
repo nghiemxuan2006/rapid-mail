@@ -3,6 +3,7 @@ import styles from './EmailTemplate.module.scss';
 import MailEditor, { type MailEditorRef } from '@/components/email-template/MailEditor';
 import VariablesPanel from '@/components/email-template/VariablesPanel';
 import PreviewModal from '@/components/email-template/PreviewModal';
+import RecipientsModal from '@/components/email-template/RecipientsModal';
 import { ContactsIcon, SendEmailIcon, DuplicateIcon } from '@/assets/icons';
 import { sendMultipleEmailsApi } from '@/features/email/emailApi';
 import { showNotifications } from '@/utils';
@@ -27,7 +28,7 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
 
     // UI state
     const [showVariablesPanel, setShowVariablesPanel] = useState(true);
-    const [showRecipientsPanel, setShowRecipientsPanel] = useState(false);
+    const [isRecipientsModalOpen, setIsRecipientsModalOpen] = useState(false);
 
     // Campaign data
     const [content, setContent] = useState('');
@@ -141,7 +142,7 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
 
     const onSendEmails = async () => {
         try {
-            await dispatch(sendMultipleEmailsApi({ recipients, content })).unwrap();
+            await dispatch(sendMultipleEmailsApi({ recipients, content, subject: campaignSubject })).unwrap();
             showNotifications('success', 'Đã gửi email thành công đến tất cả người nhận');
         } catch (err) {
             showNotifications('error', err instanceof Error ? err.message : 'Gửi email thất bại');
@@ -203,25 +204,15 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                 <div className={styles.topBarActions}>
                     <button
                         className={styles.toggleBtn}
-                        onClick={() => {
-                            setShowVariablesPanel(!showVariablesPanel);
-                            if (!showVariablesPanel) {
-                                setShowRecipientsPanel(false);
-                            }
-                        }}
+                        onClick={() => setShowVariablesPanel(!showVariablesPanel)}
                         title="Toggle Variables Panel"
                     >
                         {showVariablesPanel ? '◧' : '◨'} Variables
                     </button>
                     <button
                         className={styles.toggleBtn}
-                        onClick={() => {
-                            setShowRecipientsPanel(!showRecipientsPanel);
-                            if (!showRecipientsPanel) {
-                                setShowVariablesPanel(false);
-                            }
-                        }}
-                        title="Toggle Recipients Panel"
+                        onClick={() => setIsRecipientsModalOpen(true)}
+                        title="Manage Recipients"
                     >
                         <ContactsIcon className={styles.icon} />
                         Recipients
@@ -242,13 +233,13 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                             {campaign?.createdAt ? 'Update' : 'Save'}
                         </button>
                     )}
-                    <button
+                    {/* <button
                         className={styles.sendBtn}
                         onClick={onSendEmails}
                     >
                         <SendEmailIcon className={styles.icon} />
                         Send Now
-                    </button>
+                    </button> */}
                 </div>
             </div>
 
@@ -315,91 +306,6 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                         />
                     </div>
                 )}
-
-                {showRecipientsPanel && (
-                    <div className={styles.rightPanel}>
-                        <div className={styles.panelHeader}>
-                            <h3>👥 Manage Recipients</h3>
-                            <button
-                                className={styles.closePanel}
-                                onClick={() => setShowRecipientsPanel(false)}
-                            >
-                                ✕
-                            </button>
-                        </div>
-                        <div className={styles.panelContent}>
-                            {/* Fields */}
-                            <div className={styles.fieldsSection}>
-                                <h4>Fields</h4>
-                                <div className={styles.fieldsList}>
-                                    {fields.map((field) => (
-                                        <div key={field.id} className={styles.fieldChip}>
-                                            <span>{field.name}</span>
-                                            {field.name.toLowerCase() !== 'email' && (
-                                                <button
-                                                    className={styles.deleteFieldBtn}
-                                                    onClick={() => handleDeleteField(field.id)}
-                                                >
-                                                    ✕
-                                                </button>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Recipients List */}
-                            <div className={styles.recipientsSection}>
-                                <div className={styles.recipientsSectionHeader}>
-                                    <h4>Recipients ({recipients.length})</h4>
-                                    <button
-                                        className={styles.addRecipientBtn}
-                                        onClick={handleAddRecipient}
-                                    >
-                                        + Add
-                                    </button>
-                                </div>
-
-                                {recipients.length === 0 ? (
-                                    <div className={styles.emptyState}>
-                                        <p>No recipients yet</p>
-                                    </div>
-                                ) : (
-                                    <div className={styles.recipientsList}>
-                                        {recipients.map((recipient) => (
-                                            <div key={recipient.id} className={styles.recipientCard}>
-                                                {fields.map((field) => (
-                                                    <div key={field.id} className={styles.recipientField}>
-                                                        <label>{field.name}</label>
-                                                        <input
-                                                            type="text"
-                                                            value={recipient[field.name] || ''}
-                                                            onChange={(e) =>
-                                                                handleUpdateRecipient(
-                                                                    recipient.id,
-                                                                    field.name,
-                                                                    e.target.value
-                                                                )
-                                                            }
-                                                            className={styles.recipientInput}
-                                                            placeholder={field.name}
-                                                        />
-                                                    </div>
-                                                ))}
-                                                <button
-                                                    className={styles.deleteRecipientBtn}
-                                                    onClick={() => handleDeleteRecipient(recipient.id)}
-                                                >
-                                                    🗑️ Remove
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                )}
             </div>
 
             {/* Preview Modal */}
@@ -412,6 +318,17 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                 previewIndex={previewIndex}
                 onPreviewIndexChange={setPreviewIndex}
                 onSend={onSendEmails}
+            />
+
+            {/* Recipients Modal */}
+            <RecipientsModal
+                isOpen={isRecipientsModalOpen}
+                onClose={() => setIsRecipientsModalOpen(false)}
+                recipients={recipients}
+                fields={fields}
+                onUpdateRecipient={handleUpdateRecipient}
+                onAddRecipient={handleAddRecipient}
+                onDeleteRecipient={handleDeleteRecipient}
             />
         </div>
     );

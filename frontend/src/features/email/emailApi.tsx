@@ -16,7 +16,8 @@ export const sendMailApi = createAsyncThunk<void, SendEmailRequestType>(
 
 interface sendMultipleEmailsRequestType {
     recipients: Array<Recipient>,
-    content: string
+    content: string,
+    subject: string
 }
 
 export const sendMultipleEmailsApi = createAsyncThunk<void, sendMultipleEmailsRequestType>(

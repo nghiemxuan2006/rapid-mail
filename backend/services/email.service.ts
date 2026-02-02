@@ -7,6 +7,7 @@ import { Recipient, MutipleEmailsPostRequestType } from '../schema/email.schema'
 export type EmailBody = {
     content: string;
     receivers: string[];
+    subject: string;
 };
 
 export type EmailPayload = EmailBody & {
@@ -28,11 +29,11 @@ const base64UrlEncode = (input: string) => {
         .replace(/=+$/, '');
 };
 
-const buildRawMessage = (from: string, to: string[], content: string) => {
+const buildRawMessage = (from: string, to: string[], subject: string, content: string) => {
     const headers = [
         `From: ${from}`,
         `To: ${to.join(', ')}`,
-        'Subject: Rapid Mail Notification',
+        `Subject: ${subject}`,
         'Content-Type: text/html; charset="UTF-8"'
     ];
 
@@ -96,7 +97,7 @@ const sendWithGmailApi = async (accessToken: string, rawMessage: string) => {
     return { needRefresh: false, messageId: data.id } as const;
 };
 
-export const sendEmail = async ({ content, receivers, userId }: EmailPayload) => {
+export const sendEmail = async ({ content, receivers, userId, subject }: EmailPayload) => {
     if (!content || typeof content !== 'string' || !content.trim()) {
         throw new BAD_REQUEST_ERROR('content is required');
     }
@@ -118,7 +119,7 @@ export const sendEmail = async ({ content, receivers, userId }: EmailPayload) =>
         throw new UNAUTHORIZED_ERROR('User not found');
     }
 
-    const rawMessage = buildRawMessage(user.email, uniqueReceivers, content.trim());
+    const rawMessage = buildRawMessage(user.email, uniqueReceivers, subject, content.trim());
 
     let accessToken = user.googleAccessToken;
     let sendResult = await sendWithGmailApi(accessToken, rawMessage);
@@ -165,7 +166,7 @@ const processContent = (content: string, recipient: Recipient, fields: string[])
 
     return preview;
 }
-export const sendMultipleEmails = async ({ content, recipients, userId }: CustomEmailPayload) => {
+export const sendMultipleEmails = async ({ content, recipients, userId, subject }: CustomEmailPayload) => {
     if (!content || typeof content !== 'string' || !content.trim()) {
         throw new BAD_REQUEST_ERROR('content is required');
     }
@@ -181,7 +182,7 @@ export const sendMultipleEmails = async ({ content, recipients, userId }: Custom
             throw new BAD_REQUEST_ERROR(`Invalid receiver email: ${emailAddress}`);
         }
         const personalizedContent = processContent(content, recipient, fields);
-        await sendEmail({ content: personalizedContent, receivers: [emailAddress], userId })
+        await sendEmail({ content: personalizedContent, receivers: [emailAddress], userId, subject })
     })
 
 }

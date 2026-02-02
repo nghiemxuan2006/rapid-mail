@@ -217,3 +217,60 @@ export const SignatureIcon = ({ className }: { className?: string }) => {
         </svg>
     );
 };
+
+export const EditIcon = ({ className }: { className?: string }) => {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={1.5}
+            stroke="currentColor"
+            className={className}
+        >
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"
+            />
+        </svg>
+    );
+};
+
+export const TrashIcon = ({ className }: { className?: string }) => {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={1.5}
+            stroke="currentColor"
+            className={className}
+        >
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 2.991a2.25 2.25 0 0 0-2.163-1.491h-6.793a2.25 2.25 0 0 0-2.163 1.491L2.04 6.793c.342-.059.682-.114 1.022-.165m0 0a48.259 48.259 0 0 1 7.478 0M3 11.25a3 3 0 0 0 5.884.692 48.284 48.284 0 0 1 1.232-7.195 3 3 0 0 0 5.884.692 48.284 48.284 0 0 1 1.232 7.195 3 3 0 0 0 5.884-.692M9 19.35l1.995-1.084a2.25 2.25 0 0 0 1.01-1.864v-2.25m-.005-7.5h-2.025A2.25 2.25 0 0 0 5.338 7.169v-2.051a2.25 2.25 0 0 1 1.136-1.948 48.42 48.42 0 0 1 5.052 0 2.25 2.25 0 0 1 1.136 1.948v2.051m-.82 15.355a2.25 2.25 0 0 0 2.25-2.25v-2.25a2.25 2.25 0 0 0-2.25-2.25h-.01a48.32 48.32 0 0 1-7.48 0h-.01a2.25 2.25 0 0 0-2.25 2.25v2.25a2.25 2.25 0 0 0 2.25 2.25Z"
+            />
+        </svg>
+    );
+};
+
+export const EllipsisVerticalIcon = ({ className }: { className?: string }) => {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={1.5}
+            stroke="currentColor"
+            className={className}
+        >
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM12 13.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM12 18.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z"
+            />
+        </svg>
+    );
+};

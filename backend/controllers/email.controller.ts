@@ -5,14 +5,14 @@ import { MutipleEmailsPostRequestType } from '../schema/email.schema';
 
 export const submitEmail = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { content, receivers } = req.body;
+        const { content, receivers, subject } = req.body;
         const userId = req.user?.sub as string | undefined;
 
         if (!userId) {
             throw new UNAUTHORIZED_ERROR('Missing user context');
         }
 
-        const result = await sendEmail({ content, receivers, userId });
+        const result = await sendEmail({ content, receivers, userId, subject });
 
         res.json({
             message: 'Email accepted',
@@ -25,12 +25,12 @@ export const submitEmail = async (req: Request, res: Response, next: NextFunctio
 
 export const submitMultipleEmails = async (req: Request<{}, {}, MutipleEmailsPostRequestType>, res: Response, next: NextFunction) => {
     try {
-        const { content, recipients } = req.body;
+        const { content, recipients, subject } = req.body;
         const userId = req.user?.sub as string | undefined;
         if (!userId) {
             throw new UNAUTHORIZED_ERROR('Missing user context');
         }
-        await sendMultipleEmails({ content, recipients, userId });
+        await sendMultipleEmails({ content, recipients, userId, subject });
 
         res.json({
             message: 'All emails accepted'
