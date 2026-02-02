@@ -88,7 +88,12 @@ const Editor = forwardRef<EditorHandle, EditorProps>(
             },
             setContent: (content: string) => {
                 if (quillRef.current) {
-                    quillRef.current.root.innerHTML = content;
+                    // Clear current content first
+                    quillRef.current.setContents([], 'silent');
+                    // Use dangerouslyPasteHTML but with a small delay to ensure render
+                    setTimeout(() => {
+                        quillRef.current?.clipboard.dangerouslyPasteHTML(content, 'user');
+                    }, 10);
                 }
             },
             focus: () => {
@@ -117,9 +122,11 @@ const Editor = forwardRef<EditorHandle, EditorProps>(
 
             quillRef.current = quill;
 
-            // Set initial value
+            // Set initial value using dangerouslyPasteHTML for proper HTML rendering
             if (value) {
-                quill.root.innerHTML = value;
+                setTimeout(() => {
+                    quill.clipboard.dangerouslyPasteHTML(value, 'user');
+                }, 10);
             }
 
             // Handle text change
@@ -138,11 +145,13 @@ const Editor = forwardRef<EditorHandle, EditorProps>(
 
         // Update content when value prop changes
         useEffect(() => {
-            if (quillRef.current && value !== quillRef.current.root.innerHTML) {
-                const selection = quillRef.current.getSelection();
-                quillRef.current.root.innerHTML = value;
-                if (selection) {
-                    quillRef.current.setSelection(selection);
+            if (quillRef.current && value) {
+                const currentContent = quillRef.current.root.innerHTML;
+                if (currentContent !== value) {
+                    quillRef.current.setContents([], 'silent');
+                    setTimeout(() => {
+                        quillRef.current?.clipboard.dangerouslyPasteHTML(value, 'user');
+                    }, 10);
                 }
             }
         }, [value]);

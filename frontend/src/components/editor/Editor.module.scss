@@ -105,6 +105,44 @@
               color: #004080;
             }
           }
+
+          // Tables and divs for signature layout
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0.5em 0;
+
+            td, th {
+              padding: 8px;
+              border: 1px solid #ddd;
+            }
+          }
+
+          div {
+            // Preserve inline styles for signature layout
+            display: inherit;
+            flex-direction: inherit;
+            align-items: inherit;
+            justify-content: inherit;
+            gap: inherit;
+            flex-wrap: inherit;
+          }
+
+          // Support for signature-specific styling
+          [style] {
+            // Allow all inline styles to be applied
+            all: unset;
+            display: revert;
+            margin: revert;
+            padding: revert;
+            border: revert;
+            width: revert;
+            height: revert;
+            flex: revert;
+            flex-direction: revert;
+            align-items: revert;
+            justify-content: revert;
+          }
         }
       }
 

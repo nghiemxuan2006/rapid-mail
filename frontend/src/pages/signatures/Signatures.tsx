@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
 import styles from './Signatures.module.scss';
 import { useAppDispatch } from '@/app/hook';
-import { getSignaturesApi, type Signature } from '@/features/signature/signatureApi';
+import { getSignaturesApi, updateSignatureApi, type Signature } from '@/features/signature/signatureApi';
+import SignatureEditModal from '@/components/email-template/SignatureEditModal';
 
 const Signatures = () => {
     const dispatch = useAppDispatch();
     const [signatures, setSignatures] = useState<Signature[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [selectedSignature, setSelectedSignature] = useState<Signature | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         const fetchSignatures = async () => {
@@ -22,6 +26,38 @@ const Signatures = () => {
         };
         fetchSignatures();
     }, [dispatch]);
+
+    const handleEditClick = (signature: Signature, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setSelectedSignature(signature);
+        setIsEditModalOpen(true);
+    };
+
+    const handleCloseEditModal = () => {
+        setIsEditModalOpen(false);
+        setSelectedSignature(null);
+    };
+
+    const handleSaveSignature = async (updatedSignature: Signature) => {
+        setIsSaving(true);
+        try {
+            await dispatch(updateSignatureApi({
+                sendAsEmail: updatedSignature.sendAsEmail,
+                signature: updatedSignature.signature,
+            })).unwrap();
+
+            setSignatures(signatures.map(sig =>
+                sig.sendAsEmail === updatedSignature.sendAsEmail ? updatedSignature : sig
+            ));
+
+            console.log('Signature updated:', updatedSignature);
+            handleCloseEditModal();
+        } catch (error) {
+            console.error('Failed to update signature:', error);
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     return (
         <div className={styles.container}>
@@ -51,7 +87,11 @@ const Signatures = () => {
                                         <p className={styles.email}>{signature.sendAsEmail}</p>
                                     </div>
                                     <div className={styles.cardActions}>
-                                        <button className={styles.actionButton} title="Edit">
+                                        <button
+                                            className={styles.actionButton}
+                                            title="Edit"
+                                            onClick={(e) => handleEditClick(signature, e)}
+                                        >
                                             Edit
                                         </button>
                                         <button className={styles.actionButton} title="Delete">
@@ -74,6 +114,14 @@ const Signatures = () => {
                     )}
                 </div>
             )}
+
+            <SignatureEditModal
+                isOpen={isEditModalOpen}
+                onClose={handleCloseEditModal}
+                signature={selectedSignature}
+                onSave={handleSaveSignature}
+                isSaving={isSaving}
+            />
         </div>
     );
 };
