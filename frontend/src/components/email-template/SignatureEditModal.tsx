@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
-import Editor, { type EditorHandle } from '@/components/editor/Editor';
+import { useState, useEffect } from 'react';
+import TrumbowEditor from '@/components/editor/TrumbowEditor';
 import styles from './SignatureEditModal.module.scss';
 import type { Signature } from '@/features/signature/signatureApi';
 
@@ -18,23 +18,12 @@ const SignatureEditModal = ({
     onSave,
     isSaving = false
 }: SignatureEditModalProps) => {
-    const editorRef = useRef<EditorHandle>(null);
     const [editedSignature, setEditedSignature] = useState<Signature | null>(signature);
-    const initializedRef = useRef(false);
 
     // Update editedSignature when signature prop changes
     useEffect(() => {
         if (isOpen && signature) {
             setEditedSignature(signature);
-            initializedRef.current = false; // Reset flag when opening modal
-        }
-    }, [isOpen, signature?.sendAsEmail]);
-
-    // Set editor content ONLY on initial load
-    useEffect(() => {
-        if (isOpen && signature && !initializedRef.current && editorRef.current) {
-            initializedRef.current = true;
-            editorRef.current.setContent(signature.signature);
         }
     }, [isOpen, signature?.sendAsEmail]);
 
@@ -46,10 +35,9 @@ const SignatureEditModal = ({
     const handleSave = () => {
         if (!editedSignature) return;
 
-        const content = editorRef.current?.getContent() || '';
         const updatedSignature: Signature = {
             ...editedSignature,
-            signature: content,
+            signature: editedSignature.signature,
         };
 
         onSave(updatedSignature);
@@ -84,12 +72,10 @@ const SignatureEditModal = ({
                 <div className={styles.content}>
                     <div className={styles.editorSection}>
                         <label>Signature Content</label>
-                        <Editor
-                            ref={editorRef}
+                        <TrumbowEditor
                             value={editedSignature.signature}
                             onChange={handleContentChange}
                             placeholder="Enter your signature HTML here..."
-                            readOnly={isSaving}
                         />
                     </div>
                 </div>
