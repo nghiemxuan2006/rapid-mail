@@ -38,7 +38,7 @@ const refreshGoogleAccessToken = async (refreshToken: string): Promise<string> =
     return data.access_token;
 };
 
-export const getSignatureList = async (userId: string) => {
+export const getSignatureList = async (userId: string, isAlias: boolean = false) => {
     const user = await User.findById(userId);
 
     if (!user) {
@@ -46,7 +46,11 @@ export const getSignatureList = async (userId: string) => {
     }
 
     let accessToken = user.googleAccessToken;
-    let response = await fetch(GMAIL_SIGNATURE_ENDPOINT, {
+    let endpoint = GMAIL_SIGNATURE_ENDPOINT;
+    if (isAlias) {
+        endpoint += `/${user.email}`
+    };
+    let response = await fetch(endpoint, {
         method: 'GET',
         headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -60,7 +64,7 @@ export const getSignatureList = async (userId: string) => {
         user.googleAccessToken = accessToken;
         await user.save();
 
-        response = await fetch(GMAIL_SIGNATURE_ENDPOINT, {
+        response = await fetch(endpoint, {
             method: 'GET',
             headers: {
                 Authorization: `Bearer ${accessToken}`,

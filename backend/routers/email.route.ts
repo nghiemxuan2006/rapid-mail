@@ -6,8 +6,6 @@ import { validateRequestBody } from '../middleware/validation';
 
 const router = express.Router();
 
-router.post('/', verifyToken, submitEmail);
-
 router.post('/multiple',
     validateRequestBody(MutipleEmailsPostRequestSchema),
     verifyToken,

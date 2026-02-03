@@ -3,11 +3,13 @@ import logger from '../utils/wiston-log';
 import settings from '../config/env';
 import User from '../models/user.model';
 import { Recipient, MutipleEmailsPostRequestType } from '../schema/email.schema';
+import { getSignatureList } from './signature.service';
 
 export type EmailBody = {
     content: string;
     receivers: string[];
     subject: string;
+    signature?: string;
 };
 
 export type EmailPayload = EmailBody & {
@@ -97,7 +99,7 @@ const sendWithGmailApi = async (accessToken: string, rawMessage: string) => {
     return { needRefresh: false, messageId: data.id } as const;
 };
 
-export const sendEmail = async ({ content, receivers, userId, subject }: EmailPayload) => {
+export const sendEmail = async ({ content, receivers, userId, subject, signature }: EmailPayload) => {
     if (!content || typeof content !== 'string' || !content.trim()) {
         throw new BAD_REQUEST_ERROR('content is required');
     }
@@ -119,7 +121,7 @@ export const sendEmail = async ({ content, receivers, userId, subject }: EmailPa
         throw new UNAUTHORIZED_ERROR('User not found');
     }
 
-    const rawMessage = buildRawMessage(user.email, uniqueReceivers, subject, content.trim());
+    const rawMessage = buildRawMessage(user.email, uniqueReceivers, subject, content.trim() + '\n\n' + (signature || ''));
 
     let accessToken = user.googleAccessToken;
     let sendResult = await sendWithGmailApi(accessToken, rawMessage);
@@ -174,7 +176,8 @@ export const sendMultipleEmails = async ({ content, recipients, userId, subject 
     if (!Array.isArray(recipients) || recipients.length === 0) {
         throw new BAD_REQUEST_ERROR('recipients must be a non-empty array');
     }
-
+    const res = await getSignatureList(userId, true);
+    const signature = res?.signature || '';
     const fields = Object.keys(recipients[0]);
     recipients.forEach(async (recipient) => {
         const emailAddress = recipient['Email'];
@@ -182,7 +185,7 @@ export const sendMultipleEmails = async ({ content, recipients, userId, subject 
             throw new BAD_REQUEST_ERROR(`Invalid receiver email: ${emailAddress}`);
         }
         const personalizedContent = processContent(content, recipient, fields);
-        await sendEmail({ content: personalizedContent, receivers: [emailAddress], userId, subject })
+        await sendEmail({ content: personalizedContent, receivers: [emailAddress], userId, subject, signature })
     })
 
 }

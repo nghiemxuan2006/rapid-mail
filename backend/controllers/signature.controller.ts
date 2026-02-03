@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { getSignatureList, updateSignatureService } from '../services/signature.service';
 import { UNAUTHORIZED_ERROR } from '../utils/error';
-import { UpdateSignatureInput } from '../schema/signature.schema';
+import { updateSignatureSchema } from '../schema/signature.schema';
 
 export const getSignatures = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -30,7 +30,7 @@ export const updateSignature = async (req: Request, res: Response, next: NextFun
             throw new UNAUTHORIZED_ERROR('Missing user context');
         }
 
-        const { sendAsEmail, signature } = req.body as UpdateSignatureInput;
+        const { sendAsEmail, signature } = updateSignatureSchema.parse(req.body);
 
         const result = await updateSignatureService(userId, sendAsEmail, signature);
 
