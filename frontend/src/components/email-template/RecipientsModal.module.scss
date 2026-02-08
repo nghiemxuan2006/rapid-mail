@@ -62,6 +62,15 @@
   }
 }
 
+.content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 24px;
+  overflow: hidden;
+  min-height: 0;
+}
+
 .subtitle {
   margin: 0;
   font-size: 0.9rem;
@@ -93,9 +102,71 @@
 .actions {
   display: flex;
   gap: 12px;
-  padding: 16px 24px;
+}
+
+.topSection {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  padding: 0 0 16px 0;
+  margin-bottom: 16px;
   border-bottom: 1px solid rgba(229, 231, 235, 0.8);
   background: linear-gradient(135deg, rgba(249, 250, 251, 0.5), rgba(255, 255, 255, 0.8));
+}
+
+.fieldActions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.fieldInput {
+  display: flex;
+  gap: 12px;
+  max-width: 500px;
+}
+
+.fieldInputField {
+  flex: 1;
+  padding: 10px 16px;
+  border: 2px solid rgba(229, 231, 235, 0.8);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  color: #1f2937;
+
+  &:focus {
+    outline: none;
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+  }
+
+  &::placeholder {
+    color: #9ca3af;
+  }
+}
+
+.addFieldBtn {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+
+  &:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+    transform: translateY(-2px);
+  }
 }
 
 .icon {
@@ -143,9 +214,13 @@
 
 .tableWrapper {
   flex: 1;
-  overflow: auto;
-  padding: 0;
+  overflow-y: auto;
+  overflow-x: auto;
   background: linear-gradient(135deg, rgba(249, 250, 251, 0.3), rgba(255, 255, 255, 0.5));
+  min-height: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
 
   &::-webkit-scrollbar {
     width: 10px;
@@ -171,6 +246,7 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
+  table-layout: fixed;
 
   thead {
     position: sticky;
@@ -184,7 +260,7 @@
       text-align: left;
       font-weight: 700;
       color: #374151;
-      border-bottom: 2px solid rgba(37, 99, 235, 0.2);
+      border: 1px solid rgba(209, 213, 219, 0.8);
       white-space: nowrap;
       text-transform: uppercase;
       font-size: 0.8rem;
@@ -205,16 +281,58 @@
 
     td {
       padding: 10px 16px;
+      border: 1px solid rgba(229, 231, 235, 0.5);
     }
+  }
+}
+
+.fieldHeader {
+  position: relative;
+  min-width: 14rem;
+  width: 14rem;
+}
+
+.fieldHeaderContent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.deleteFieldBtn {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  opacity: 0.6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  &:hover {
+    opacity: 1;
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.3);
+  }
+
+  svg {
+    width: 14px;
+    height: 14px;
+    color: #dc2626;
   }
 }
 
 .statusCol {
   width: 100px;
+  min-width: 100px;
 }
 
 .actionCol {
   width: 80px;
+  min-width: 80px;
   text-align: center;
 }
 

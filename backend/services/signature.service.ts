@@ -1,6 +1,7 @@
-import User from '../models/user.model';
+import User, { IUser } from '../models/user.model';
 import { UNAUTHORIZED_ERROR, BAD_REQUEST_ERROR } from '../utils/error';
 import settings from '../config/env';
+import { sendRequest } from '../utils/send-request';
 
 const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
 const GMAIL_SIGNATURE_ENDPOINT = 'https://gmail.googleapis.com/gmail/v1/users/me/settings/sendAs';
@@ -38,20 +39,16 @@ const refreshGoogleAccessToken = async (refreshToken: string): Promise<string> =
     return data.access_token;
 };
 
-export const getSignatureList = async (userId: string, isAlias: boolean = false) => {
-    const user = await User.findById(userId);
-
-    if (!user) {
-        throw new UNAUTHORIZED_ERROR('User not found');
-    }
+export const getSignatureList = async (user: IUser, isAlias: boolean = false) => {
 
     let accessToken = user.googleAccessToken;
     let endpoint = GMAIL_SIGNATURE_ENDPOINT;
     if (isAlias) {
         endpoint += `/${user.email}`
     };
-    let response = await fetch(endpoint, {
+    let response = await sendRequest({
         method: 'GET',
+        url: endpoint,
         headers: {
             Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/json'
@@ -64,8 +61,9 @@ export const getSignatureList = async (userId: string, isAlias: boolean = false)
         user.googleAccessToken = accessToken;
         await user.save();
 
-        response = await fetch(endpoint, {
+        response = await sendRequest({
             method: 'GET',
+            url: endpoint,
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 'Content-Type': 'application/json'
@@ -73,12 +71,12 @@ export const getSignatureList = async (userId: string, isAlias: boolean = false)
         });
     }
 
-    if (!response.ok) {
-        const errorData = await response.json() as { error?: { message?: string } };
+    if (response.status >= 400) {
+        const errorData = response.data as { error?: { message?: string } };
         throw new BAD_REQUEST_ERROR(errorData.error?.message || 'Failed to fetch signature from Gmail API');
     }
 
-    const data = await response.json();
+    const data = response.data;
     return data;
 };
 
@@ -96,13 +94,14 @@ export const updateSignatureService = async (userId: string, sendAsEmail: string
         signature: signature
     };
 
-    let response = await fetch(updateUrl, {
+    let response = await sendRequest({
         method: 'PATCH',
+        url: updateUrl,
+        data: payload,
         headers: {
             Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        }
     });
 
     // If token expired, refresh and retry
@@ -111,21 +110,22 @@ export const updateSignatureService = async (userId: string, sendAsEmail: string
         user.googleAccessToken = accessToken;
         await user.save();
 
-        response = await fetch(updateUrl, {
+        response = await sendRequest({
             method: 'PATCH',
+            url: updateUrl,
+            data: payload,
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
+            }
         });
     }
 
-    if (!response.ok) {
-        const errorData = await response.json() as { error?: { message?: string } };
+    if (response.status >= 400) {
+        const errorData = response.data as { error?: { message?: string } };
         throw new BAD_REQUEST_ERROR(errorData.error?.message || 'Failed to update signature via Gmail API');
     }
 
-    const data = await response.json();
+    const data = response.data;
     return data;
 };

@@ -1,5 +1,5 @@
 import express from 'express';
-import { submitEmail, submitMultipleEmails } from '../controllers/email.controller';
+import { submitMultipleEmails } from '../controllers/email.controller';
 import { verifyToken } from '../middleware/verify-token';
 import { MutipleEmailsPostRequestSchema } from '../schema/email.schema';
 import { validateRequestBody } from '../middleware/validation';

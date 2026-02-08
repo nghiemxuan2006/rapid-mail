@@ -288,21 +288,13 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                 {/* Right Panels - Toggleable */}
                 {showVariablesPanel && (
                     <div className={styles.rightPanel}>
-                        <div className={styles.panelHeader}>
-                            <h3>🔖 Variables</h3>
-                            <button
-                                className={styles.closePanel}
-                                onClick={() => setShowVariablesPanel(false)}
-                            >
-                                ✕
-                            </button>
-                        </div>
                         <VariablesPanel
                             fields={fields}
                             recipients={recipients}
                             onInsert={handleInsertVariable}
                             onAddField={handleAddField}
                             onDeleteField={handleDeleteField}
+                            onClose={() => setShowVariablesPanel(false)}
                         />
                     </div>
                 )}
@@ -329,6 +321,8 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                 onUpdateRecipient={handleUpdateRecipient}
                 onAddRecipient={handleAddRecipient}
                 onDeleteRecipient={handleDeleteRecipient}
+                onAddField={handleAddField}
+                onDeleteField={handleDeleteField}
             />
         </div>
     );

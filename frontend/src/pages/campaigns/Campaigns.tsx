@@ -251,7 +251,7 @@ const Campaigns = () => {
                                                 }}
                                             >
                                                 <DuplicateIcon className={styles.menuIcon} />
-                                                Sao chép
+                                                Nhân bản
                                             </button>
                                             <button
                                                 className={`${styles.menuItem} ${styles.menuItemDanger}`}

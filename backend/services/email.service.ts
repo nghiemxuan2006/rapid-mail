@@ -1,9 +1,10 @@
 import { BAD_REQUEST_ERROR, UNAUTHORIZED_ERROR } from '../utils/error';
 import logger from '../utils/wiston-log';
 import settings from '../config/env';
-import User from '../models/user.model';
+import User, { IUser } from '../models/user.model';
 import { Recipient, MutipleEmailsPostRequestType } from '../schema/email.schema';
 import { getSignatureList } from './signature.service';
+import { sendRequest } from '../utils/send-request';
 
 export type EmailBody = {
     content: string;
@@ -13,7 +14,7 @@ export type EmailBody = {
 };
 
 export type EmailPayload = EmailBody & {
-    userId: string;
+    user: IUser;
 };
 
 const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
@@ -59,17 +60,18 @@ const refreshGoogleAccessToken = async (refreshToken: string): Promise<string> =
         grant_type: 'refresh_token'
     });
 
-    const response = await fetch(GOOGLE_TOKEN_ENDPOINT, {
+    const response = await sendRequest({
         method: 'POST',
+        url: GOOGLE_TOKEN_ENDPOINT,
+        data: payload,
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: payload
+        }
     });
 
-    const data = await response.json() as { access_token?: string; expires_in?: number; error_description?: string };
+    const data = response.data as { access_token?: string; expires_in?: number; error_description?: string };
 
-    if (!response.ok || !data.access_token) {
+    if (response.status >= 400 || !data.access_token) {
         throw new UNAUTHORIZED_ERROR(data.error_description || 'Unable to refresh Google access token');
     }
 
@@ -77,29 +79,30 @@ const refreshGoogleAccessToken = async (refreshToken: string): Promise<string> =
 };
 
 const sendWithGmailApi = async (accessToken: string, rawMessage: string) => {
-    const response = await fetch(GMAIL_SEND_ENDPOINT, {
+    const response = await sendRequest({
         method: 'POST',
+        url: GMAIL_SEND_ENDPOINT,
+        data: { raw: rawMessage },
         headers: {
             Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ raw: rawMessage })
+        }
     });
 
     if (response.status === 401) {
         return { needRefresh: true, messageId: null } as const;
     }
 
-    const data = await response.json() as { id?: string; error?: { message?: string } };
+    const data = response.data as { id?: string; error?: { message?: string } };
 
-    if (!response.ok || !data.id) {
+    if (response.status >= 400 || !data.id) {
         throw new BAD_REQUEST_ERROR(data.error?.message || 'Failed to send email with Gmail API');
     }
 
     return { needRefresh: false, messageId: data.id } as const;
 };
 
-export const sendEmail = async ({ content, receivers, userId, subject, signature }: EmailPayload) => {
+export const sendEmail = async ({ content, receivers, user, subject, signature }: EmailPayload) => {
     if (!content || typeof content !== 'string' || !content.trim()) {
         throw new BAD_REQUEST_ERROR('content is required');
     }
@@ -116,10 +119,6 @@ export const sendEmail = async ({ content, receivers, userId, subject, signature
 
     const uniqueReceivers = Array.from(new Set(receivers.map((receiver) => receiver.trim().toLowerCase())));
 
-    const user = await User.findById(userId);
-    if (!user) {
-        throw new UNAUTHORIZED_ERROR('User not found');
-    }
 
     const rawMessage = buildRawMessage(user.email, uniqueReceivers, subject, content.trim() + '\n\n' + (signature || ''));
 
@@ -128,7 +127,7 @@ export const sendEmail = async ({ content, receivers, userId, subject, signature
 
     if (sendResult.needRefresh) {
         accessToken = await refreshGoogleAccessToken(user.googleRefreshToken);
-        await User.findByIdAndUpdate(userId, { googleAccessToken: accessToken });
+        await User.findByIdAndUpdate(user._id, { googleAccessToken: accessToken });
         sendResult = await sendWithGmailApi(accessToken, rawMessage);
     }
 
@@ -169,23 +168,22 @@ const processContent = (content: string, recipient: Recipient, fields: string[])
     return preview;
 }
 export const sendMultipleEmails = async ({ content, recipients, userId, subject }: CustomEmailPayload) => {
-    if (!content || typeof content !== 'string' || !content.trim()) {
-        throw new BAD_REQUEST_ERROR('content is required');
+    const user = await User.findById(userId);
+    if (!user) {
+        throw new UNAUTHORIZED_ERROR('User not found');
     }
 
-    if (!Array.isArray(recipients) || recipients.length === 0) {
-        throw new BAD_REQUEST_ERROR('recipients must be a non-empty array');
-    }
-    const res = await getSignatureList(userId, true);
+    const res = await getSignatureList(user, true);
     const signature = res?.signature || '';
     const fields = Object.keys(recipients[0]);
+
     recipients.forEach(async (recipient) => {
         const emailAddress = recipient['Email'];
         if (!isValidReceiver(emailAddress)) {
             throw new BAD_REQUEST_ERROR(`Invalid receiver email: ${emailAddress}`);
         }
         const personalizedContent = processContent(content, recipient, fields);
-        await sendEmail({ content: personalizedContent, receivers: [emailAddress], userId, subject, signature })
+        await sendEmail({ content: personalizedContent, receivers: [emailAddress], user, subject, signature })
     })
 
 }

@@ -2,6 +2,7 @@ import * as jwt from 'jsonwebtoken';
 import settings from '../config/env';
 import { BAD_REQUEST_ERROR, UNAUTHORIZED_ERROR } from '../utils/error';
 import User, { IUser } from '../models/user.model';
+import { sendRequest } from '../utils/send-request';
 
 type GoogleTokenResponse = {
     access_token: string;
@@ -37,17 +38,18 @@ const exchangeAuthorizationCode = async (authorizeCode: string): Promise<GoogleT
         grant_type: 'authorization_code'
     });
 
-    const response = await fetch(GOOGLE_TOKEN_ENDPOINT, {
+    const response = await sendRequest({
         method: 'POST',
+        url: GOOGLE_TOKEN_ENDPOINT,
+        data: payload,
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: payload
+        }
     });
 
-    const data = await response.json() as Partial<GoogleTokenResponse> & { error_description?: string };
+    const data = response.data as Partial<GoogleTokenResponse> & { error_description?: string };
 
-    if (!response.ok) {
+    if (response.status >= 400) {
         throw new UNAUTHORIZED_ERROR(data.error_description || 'Failed to exchange authorize_code with Google');
     }
 
@@ -66,15 +68,17 @@ const exchangeAuthorizationCode = async (authorizeCode: string): Promise<GoogleT
 };
 
 const fetchGoogleProfile = async (accessToken: string): Promise<GoogleProfile> => {
-    const response = await fetch(GOOGLE_USERINFO_ENDPOINT, {
+    const response = await sendRequest({
+        method: 'GET',
+        url: GOOGLE_USERINFO_ENDPOINT,
         headers: {
             Authorization: `Bearer ${accessToken}`
         }
     });
 
-    const data = await response.json() as { email?: string; name?: string; error?: { message?: string } };
+    const data = response.data as { email?: string; name?: string; error?: { message?: string } };
 
-    if (!response.ok) {
+    if (response.status >= 400) {
         throw new UNAUTHORIZED_ERROR(data.error?.message || 'Failed to fetch Google profile');
     }
 

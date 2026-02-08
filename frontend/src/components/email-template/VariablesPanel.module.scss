@@ -7,26 +7,48 @@
 }
 
 .header {
-  padding: 20px;
+  flex-shrink: 0;
+  padding: 16px 20px;
   border-bottom: 1px solid #e0e0e0;
   background: #f9f9f9;
+}
+
+.headerContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 
   h3 {
-    margin: 0 0 4px;
-    font-size: 1.1rem;
+    margin: 0;
+    font-size: 1rem;
     font-weight: 600;
     color: #333;
   }
 }
 
-.subtitle {
-  margin: 0;
-  font-size: 0.85rem;
-  color: #666;
+.closeBtn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #999;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    color: #333;
+  }
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 // Data Health Summary
 .healthSummary {
+  flex-shrink: 0;
   padding: 16px 20px;
   background: linear-gradient(135deg, #f5f7ff 0%, #fef5ff 100%);
   border-bottom: 1px solid #e0e0e0;
@@ -65,10 +87,11 @@
   color: #667eea;
 }
 
-// Categories
+// Body - Variables List Section
 .fieldsList {
-  flex: 1;
+  height: 100%;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 12px 0;
 
   &::-webkit-scrollbar {
@@ -89,6 +112,7 @@
   }
 }
 
+// Field Item Styling
 .fieldItem {
   position: relative;
   display: flex;
@@ -200,11 +224,15 @@
   }
 }
 
-// Add Field Section
-.addField {
+// Footer - Add Field Section
+.footer {
+  flex-shrink: 0;
   padding: 16px 20px;
   border-top: 1px solid #e0e0e0;
   background: #fafafa;
+}
+
+.addField {
   display: flex;
   gap: 8px;
 }

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { getSignatureList, updateSignatureService } from '../services/signature.service';
 import { UNAUTHORIZED_ERROR } from '../utils/error';
 import { updateSignatureSchema } from '../schema/signature.schema';
+import User from '../models/user.model';
 
 export const getSignatures = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -11,7 +12,12 @@ export const getSignatures = async (req: Request, res: Response, next: NextFunct
             throw new UNAUTHORIZED_ERROR('Missing user context');
         }
 
-        const signatures = await getSignatureList(userId);
+        const user = await User.findById(userId);
+        if (!user) {
+            throw new UNAUTHORIZED_ERROR('User not found');
+        }
+
+        const signatures = await getSignatureList(user);
 
         res.json({
             message: 'Signatures retrieved successfully',

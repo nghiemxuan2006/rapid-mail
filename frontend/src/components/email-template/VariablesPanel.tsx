@@ -9,9 +9,10 @@ interface VariablesPanelProps {
     onInsert: (fieldName: string) => void;
     onAddField: (fieldName: string) => void;
     onDeleteField: (fieldId: string) => void;
+    onClose?: () => void;
 }
 
-const VariablesPanel = ({ fields, recipients, onInsert, onAddField, onDeleteField }: VariablesPanelProps) => {
+const VariablesPanel = ({ fields, recipients, onInsert, onAddField, onDeleteField, onClose }: VariablesPanelProps) => {
     const [newFieldName, setNewFieldName] = useState('');
 
     const getFieldStats = (fieldName: string) => {
@@ -36,73 +37,92 @@ const VariablesPanel = ({ fields, recipients, onInsert, onAddField, onDeleteFiel
 
     return (
         <div className={styles.container}>
-
-            {/* Variables List */}
-            <div className={styles.fieldsList}>
-                {fields.map(field => {
-                    const stats = getFieldStats(field.name);
-                    const isEmail = isEmailField(field.name);
-                    return (
-                        <div
-                            key={field.id}
-                            className={styles.fieldItem}
+            {/* Header */}
+            <div className={styles.header}>
+                <div className={styles.headerContent}>
+                    <h3>🔖 Variables</h3>
+                    {onClose && (
+                        <button
+                            className={styles.closeBtn}
+                            onClick={onClose}
+                            title="Close Variables Panel"
                         >
-                            <div
-                                className={styles.fieldMain}
-                                onClick={() => onInsert(field.name)}
-                            >
-                                <span className={styles.fieldName}>
-                                    {field.name}
-                                    {isEmail && <span className={styles.requiredBadge}>Required</span>}
-                                </span>
-                                <div className={styles.fieldStats}>
-                                    <span className={styles.fieldUsage}>
-                                        {stats.percentage}%
-                                    </span>
-                                </div>
-                            </div>
-                            {!isEmail && (
-                                <button
-                                    className={styles.deleteBtn}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (window.confirm(`Delete field "${field.name}"?`)) {
-                                            onDeleteField(field.id);
-                                        }
-                                    }}
-                                    title="Delete field"
-                                >
-                                    ×
-                                </button>
-                            )}
-                            <div className={styles.fieldTooltip}>
-                                <div>Data: {stats.filledCount}/{stats.totalRecipients}</div>
-                                {stats.missing > 0 && (
-                                    <div className={styles.warning}>Missing: {stats.missing}</div>
-                                )}
-                            </div>
-                        </div>
-                    );
-                })}
+                            ✕
+                        </button>
+                    )}
+                </div>
             </div>
 
-            {/* Add New Field */}
-            <div className={styles.addField}>
-                <input
-                    type="text"
-                    value={newFieldName}
-                    onChange={(e) => setNewFieldName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddField()}
-                    placeholder="New field name..."
-                    className={styles.addFieldInput}
-                />
-                <button
-                    onClick={handleAddField}
-                    className={styles.addFieldBtn}
-                    disabled={!newFieldName.trim()}
-                >
-                    + Add
-                </button>
+            {/* Body - Variables List */}
+            <div className={styles.body}>
+                <div className={styles.fieldsList}>
+                    {fields.map(field => {
+                        const stats = getFieldStats(field.name);
+                        const isEmail = isEmailField(field.name);
+                        return (
+                            <div
+                                key={field.id}
+                                className={styles.fieldItem}
+                            >
+                                <div
+                                    className={styles.fieldMain}
+                                    onClick={() => onInsert(field.name)}
+                                >
+                                    <span className={styles.fieldName}>
+                                        {field.name}
+                                        {isEmail && <span className={styles.requiredBadge}>Required</span>}
+                                    </span>
+                                    <div className={styles.fieldStats}>
+                                        <span className={styles.fieldUsage}>
+                                            {stats.percentage}%
+                                        </span>
+                                    </div>
+                                </div>
+                                {!isEmail && (
+                                    <button
+                                        className={styles.deleteBtn}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (window.confirm(`Delete field "${field.name}"?`)) {
+                                                onDeleteField(field.id);
+                                            }
+                                        }}
+                                        title="Delete field"
+                                    >
+                                        ×
+                                    </button>
+                                )}
+                                <div className={styles.fieldTooltip}>
+                                    <div>Data: {stats.filledCount}/{stats.totalRecipients}</div>
+                                    {stats.missing > 0 && (
+                                        <div className={styles.warning}>Missing: {stats.missing}</div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Footer - Add New Field */}
+            <div className={styles.footer}>
+                <div className={styles.addField}>
+                    <input
+                        type="text"
+                        value={newFieldName}
+                        onChange={(e) => setNewFieldName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddField()}
+                        placeholder="New field name..."
+                        className={styles.addFieldInput}
+                    />
+                    <button
+                        onClick={handleAddField}
+                        className={styles.addFieldBtn}
+                        disabled={!newFieldName.trim()}
+                    >
+                        + Add
+                    </button>
+                </div>
             </div>
         </div>
     );
