@@ -1,5 +1,6 @@
+import type { Recipient } from '@/schema/campaign';
 import styles from './RecipientsTab.module.scss';
-import type { Field, Recipient } from '@/pages/email-template/EmailTemplate';
+import type { Field } from '@/pages/email-template/EmailTemplate';
 
 interface RecipientsTabProps {
     recipients: Recipient[];

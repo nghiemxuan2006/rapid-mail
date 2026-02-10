@@ -274,3 +274,42 @@ export const EllipsisVerticalIcon = ({ className }: { className?: string }) => {
         </svg>
     );
 };
+
+export const ArrowLeftIcon = ({ className }: { className?: string }) => {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={1.5}
+            stroke="currentColor"
+            className={className}
+        >
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
+            />
+        </svg>
+    );
+};
+
+export const InfoIcon = ({ className }: { className?: string }) => {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.5}
+            className={className}
+        >
+            {/* Circle */}
+            <circle cx="12" cy="12" r="9.5" />
+            {/* Dot */}
+            <circle cx="12" cy="8" r="0.75" fill="currentColor" />
+            {/* Line */}
+            <line x1="12" y1="10" x2="12" y2="16" strokeLinecap="round" />
+        </svg>
+    );
+};

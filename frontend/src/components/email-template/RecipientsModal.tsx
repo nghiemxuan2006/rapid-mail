@@ -1,8 +1,19 @@
 import React from 'react';
 import type { Field } from '@/pages/email-template/EmailTemplate';
 import styles from './RecipientsModal.module.scss';
-import { ContactsIcon, DuplicateIcon } from '@/assets/icons';
+import { ContactsIcon } from '@/assets/icons';
 import type { Recipient } from '@/schema/campaign';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Checkbox,
+    Button,
+    Paper
+} from '@mui/material';
 
 interface RecipientsModalProps {
     isOpen: boolean;
@@ -28,6 +39,7 @@ const RecipientsModal = ({
     onDeleteField
 }: RecipientsModalProps) => {
     const [newFieldName, setNewFieldName] = React.useState('');
+    const [selectedRows, setSelectedRows] = React.useState<Set<string>>(new Set());
 
     if (!isOpen) return null;
 
@@ -38,13 +50,34 @@ const RecipientsModal = ({
         }
     };
 
-    const getCompletionPercentage = (recipient: Recipient) => {
-        const totalFields = fields.length;
-        if (totalFields === 0) return 100;
-
-        const filledFields = fields.filter(f => recipient[f.name] && recipient[f.name].trim() !== '').length;
-        return Math.round((filledFields / totalFields) * 100);
+    const handleSelectAll = (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (event.target.checked) {
+            setSelectedRows(new Set(recipients.map(r => r.id)));
+        } else {
+            setSelectedRows(new Set());
+        }
     };
+
+    const handleSelectRow = (recipientId: string) => {
+        const newSelected = new Set(selectedRows);
+        if (newSelected.has(recipientId)) {
+            newSelected.delete(recipientId);
+        } else {
+            newSelected.add(recipientId);
+        }
+        setSelectedRows(newSelected);
+    };
+
+    const handleDeleteSelected = () => {
+        if (selectedRows.size === 0) return;
+        if (window.confirm(`Delete ${selectedRows.size} recipient(s)?`)) {
+            selectedRows.forEach(id => onDeleteRecipient(id));
+            setSelectedRows(new Set());
+        }
+    };
+
+    const isAllSelected = recipients.length > 0 && selectedRows.size === recipients.length;
+    const isPartialSelected = selectedRows.size > 0 && selectedRows.size < recipients.length;
 
     return (
         <div className={styles.overlay} onClick={onClose}>
@@ -76,6 +109,14 @@ const RecipientsModal = ({
                                 </svg>
                                 Import CSV
                             </button>
+                            {selectedRows.size > 0 && (
+                                <button className={styles.deleteSelectedBtn} onClick={handleDeleteSelected}>
+                                    <svg className={styles.icon} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                    </svg>
+                                    Delete {selectedRows.size}
+                                </button>
+                            )}
                         </div>
 
                         <div className={styles.fieldActions}>
@@ -99,58 +140,81 @@ const RecipientsModal = ({
                     </div>
 
                     <div className={styles.tableWrapper}>
-                        <table className={styles.table}>
-                            <thead>
-                                <tr>
-                                    <th className={styles.statusCol}>Status</th>
-                                    {fields.map(field => (
-                                        <th key={field.id} className={styles.fieldHeader}>
-                                            <div className={styles.fieldHeaderContent}>
-                                                <span>{field.name}</span>
-                                                {field.name.toLowerCase() !== 'email' && (
-                                                    <button
-                                                        className={styles.deleteFieldBtn}
-                                                        onClick={() => {
-                                                            if (window.confirm(`Delete variable "${field.name}"?`)) {
-                                                                onDeleteField(field.id);
-                                                            }
-                                                        }}
-                                                        title="Delete variable"
-                                                    >
-                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                                                        </svg>
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </th>
-                                    ))}
-                                    <th className={styles.actionCol}>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {recipients.map((recipient) => {
-                                    const completion = getCompletionPercentage(recipient);
-                                    return (
-                                        <tr key={recipient.id}>
-                                            <td className={styles.statusCol}>
-                                                <div className={styles.completionBadge}>
-                                                    <div
-                                                        className={styles.completionBar}
-                                                        style={{
-                                                            width: `${completion}%`,
-                                                            background: completion === 100 ? '#4caf50' :
-                                                                completion >= 50 ? '#ff9800' : '#f44336'
-                                                        }}
-                                                    />
-                                                    <span className={styles.completionText}>{completion}%</span>
+                        <TableContainer component={Paper} className={styles.tableContainer}>
+                            <Table stickyHeader>
+                                <TableHead>
+                                    <TableRow className={styles.tableHeader}>
+                                        <TableCell padding="checkbox" className={styles.checkboxCol}>
+                                            <Checkbox
+                                                indeterminate={isPartialSelected}
+                                                checked={isAllSelected}
+                                                onChange={handleSelectAll}
+                                                sx={{
+                                                    color: '#6b7280',
+                                                    '&.Mui-checked': {
+                                                        color: '#2563eb',
+                                                    },
+                                                }}
+                                            />
+                                        </TableCell>
+                                        <TableCell className={styles.sttCol}>STT</TableCell>
+                                        {fields.map(field => (
+                                            <TableCell key={field.id} className={styles.fieldHeader}>
+                                                <div className={styles.fieldHeaderContent}>
+                                                    <span>{field.name}</span>
+                                                    {field.name.toLowerCase() !== 'email' && (
+                                                        <button
+                                                            className={styles.deleteFieldBtn}
+                                                            onClick={() => {
+                                                                if (window.confirm(`Delete variable "${field.name}"?`)) {
+                                                                    onDeleteField(field.id);
+                                                                }
+                                                            }}
+                                                            title="Delete variable"
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                                                            </svg>
+                                                        </button>
+                                                    )}
                                                 </div>
-                                            </td>
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {recipients.map((recipient, index) => (
+                                        <TableRow
+                                            key={recipient.id}
+                                            selected={selectedRows.has(recipient.id)}
+                                            className={styles.tableRow}
+                                            sx={{
+                                                '&.Mui-selected': {
+                                                    backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                                                },
+                                                '&.Mui-selected:hover': {
+                                                    backgroundColor: 'rgba(37, 99, 235, 0.12)',
+                                                },
+                                            }}
+                                        >
+                                            <TableCell padding="checkbox" className={styles.checkboxCol}>
+                                                <Checkbox
+                                                    checked={selectedRows.has(recipient.id)}
+                                                    onChange={() => handleSelectRow(recipient.id)}
+                                                    sx={{
+                                                        color: '#d1d5db',
+                                                        '&.Mui-checked': {
+                                                            color: '#2563eb',
+                                                        },
+                                                    }}
+                                                />
+                                            </TableCell>
+                                            <TableCell className={styles.sttCol}>{index + 1}</TableCell>
                                             {fields.map(field => {
                                                 const value = recipient[field.name] || '';
                                                 const isEmpty = !value.trim();
                                                 return (
-                                                    <td key={field.id} className={isEmpty ? styles.emptyCell : ''}>
+                                                    <TableCell key={field.id} className={isEmpty ? styles.emptyCell : ''}>
                                                         <input
                                                             type="text"
                                                             value={value}
@@ -158,29 +222,14 @@ const RecipientsModal = ({
                                                             className={styles.cellInput}
                                                             placeholder={`Enter ${field.name.toLowerCase()}`}
                                                         />
-                                                    </td>
+                                                    </TableCell>
                                                 );
                                             })}
-                                            <td className={styles.actionCol}>
-                                                <button
-                                                    className={styles.deleteRowBtn}
-                                                    onClick={() => {
-                                                        if (window.confirm('Delete this recipient?')) {
-                                                            onDeleteRecipient(recipient.id);
-                                                        }
-                                                    }}
-                                                    title="Delete recipient"
-                                                >
-                                                    <svg className={styles.deleteIcon} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                                                    </svg>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
                     </div>
                 </div>
 

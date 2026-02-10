@@ -4,7 +4,7 @@ import MailEditor, { type MailEditorRef } from '@/components/email-template/Mail
 import VariablesPanel from '@/components/email-template/VariablesPanel';
 import PreviewModal from '@/components/email-template/PreviewModal';
 import RecipientsModal from '@/components/email-template/RecipientsModal';
-import { ContactsIcon, SendEmailIcon, DuplicateIcon } from '@/assets/icons';
+import { ContactsIcon, SendEmailIcon, DuplicateIcon, ArrowLeftIcon } from '@/assets/icons';
 import { sendMultipleEmailsApi } from '@/features/email/emailApi';
 import { showNotifications } from '@/utils';
 import { useAppDispatch } from '@/app/hook';
@@ -196,9 +196,18 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                 <div className={styles.topBarLeft}>
                     {onBack && (
                         <button className={styles.backBtn} onClick={onBack}>
-                            ← Back
+                            <ArrowLeftIcon className={styles.icon} />
                         </button>
                     )}
+                    <div className={styles.campaignNameWrapper}>
+                        <input
+                            type="text"
+                            placeholder="Campaign name..."
+                            value={campaignName}
+                            onChange={(e) => setCampaignName(e.target.value)}
+                            className={styles.campaignNameInput}
+                        />
+                    </div>
                 </div>
 
                 <div className={styles.topBarActions}>
@@ -245,37 +254,18 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
 
             {/* Main Workspace */}
             <div className={styles.workspace}>
-                {/* Left Sidebar - Campaign Info */}
-                <div className={styles.leftSidebar}>
-                    <div className={styles.sidebarSection}>
-                        <h3 className={styles.sidebarTitle}>📋 Campaign Details</h3>
-
-                        <div className={styles.formField}>
-                            <label>Campaign Name *</label>
-                            <input
-                                type="text"
-                                placeholder="Enter campaign name..."
-                                value={campaignName}
-                                onChange={(e) => setCampaignName(e.target.value)}
-                                className={styles.input}
-                            />
-                        </div>
-
-                        <div className={styles.formField}>
-                            <label>Email Subject *</label>
-                            <input
-                                type="text"
-                                placeholder="Your email subject..."
-                                value={campaignSubject}
-                                onChange={(e) => setCampaignSubject(e.target.value)}
-                                className={styles.input}
-                            />
-                        </div>
-                    </div>
-                </div>
-
                 {/* Center - Email Editor */}
                 <div className={styles.centerContent}>
+                    <div className={styles.subjectField}>
+                        <label>Email Subject *</label>
+                        <input
+                            type="text"
+                            placeholder="Your email subject..."
+                            value={campaignSubject}
+                            onChange={(e) => setCampaignSubject(e.target.value)}
+                            className={styles.subjectInput}
+                        />
+                    </div>
                     <div className={styles.editorContainer}>
                         <MailEditor
                             ref={mailEditorRef}

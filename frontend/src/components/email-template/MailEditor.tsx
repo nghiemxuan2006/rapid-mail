@@ -85,19 +85,18 @@ const MailEditor = forwardRef<MailEditorRef, MailEditorProps>(({ content, onCont
     const insertVariable = (fieldName: string) => {
         if (!quillRef.current) return;
 
+        quillRef.current.focus(); // Focus trước để lấy selection chính xác
         const variable = `[${fieldName}]`;
         const selection = quillRef.current.getSelection();
 
-        if (selection) {
+        if (selection !== null && selection !== undefined) {
             quillRef.current.insertText(selection.index, variable);
             quillRef.current.setSelection(selection.index + variable.length);
         } else {
-            quillRef.current.focus();
+            // Nếu không có selection, insert ở cuối
             const len = quillRef.current.getLength();
             quillRef.current.insertText(len - 1, variable);
         }
-
-        quillRef.current.focus();
     };
 
     // Expose insertVariable to parent via ref
@@ -109,9 +108,9 @@ const MailEditor = forwardRef<MailEditorRef, MailEditorProps>(({ content, onCont
 
     return (
         <div className={styles.editor}>
-            <div className={styles.toolLabel}>
+            {/* <div className={styles.toolLabel}>
                 💡 Click Fields tab to insert variables
-            </div>
+            </div> */}
 
             <div
                 id="mail-editor-input"

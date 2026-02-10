@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import styles from './VariablesPanel.module.scss';
+import { Tooltip } from '@mui/material';
 import type { Field } from '@/pages/email-template/EmailTemplate';
 import type { Recipient } from '@/schema/campaign';
+import { TrashIcon, InfoIcon } from '@/assets/icons';
 
 interface VariablesPanelProps {
     fields: Field[];
@@ -40,14 +42,23 @@ const VariablesPanel = ({ fields, recipients, onInsert, onAddField, onDeleteFiel
             {/* Header */}
             <div className={styles.header}>
                 <div className={styles.headerContent}>
-                    <h3>🔖 Variables</h3>
+                    <div className={styles.titleWrapper}>
+                        <h3>Variables</h3>
+                        <Tooltip title="Click Fields tab to insert variables">
+                            <div className={styles.infoIconWrapper}>
+                                <InfoIcon className={styles.infoIcon} />
+                            </div>
+                        </Tooltip>
+                    </div>
                     {onClose && (
                         <button
                             className={styles.closeBtn}
                             onClick={onClose}
                             title="Close Variables Panel"
                         >
-                            ✕
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="20" height="20">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                            </svg>
                         </button>
                     )}
                 </div>
@@ -89,7 +100,7 @@ const VariablesPanel = ({ fields, recipients, onInsert, onAddField, onDeleteFiel
                                         }}
                                         title="Delete field"
                                     >
-                                        ×
+                                        <TrashIcon className={styles.trashIcon} />
                                     </button>
                                 )}
                                 <div className={styles.fieldTooltip}>
