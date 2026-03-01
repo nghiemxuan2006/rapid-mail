@@ -30,21 +30,18 @@ const ensureGoogleConfig = () => {
 const exchangeAuthorizationCode = async (authorizeCode: string): Promise<GoogleTokenResponse> => {
     ensureGoogleConfig();
 
-    const payload = new URLSearchParams({
+    const payload = {
         code: authorizeCode,
         client_id: settings.GOOGLE_CLIENT_ID,
         client_secret: settings.GOOGLE_CLIENT_SECRET,
         redirect_uri: settings.GOOGLE_REDIRECT_URI,
         grant_type: 'authorization_code'
-    });
+    };
 
     const response = await sendRequest({
         method: 'POST',
         url: GOOGLE_TOKEN_ENDPOINT,
         data: payload,
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-        }
     });
 
     const data = response.data as Partial<GoogleTokenResponse> & { error_description?: string };

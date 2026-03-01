@@ -6,6 +6,7 @@ interface PreviewModalProps {
     isOpen: boolean;
     onClose: () => void;
     content: string;
+    subject?: string;
     recipients: Recipient[];
     fields: Field[];
     previewIndex: number;
@@ -17,6 +18,7 @@ const PreviewModal = ({
     isOpen,
     onClose,
     content,
+    subject = '',
     recipients,
     fields,
     previewIndex,
@@ -75,19 +77,30 @@ const PreviewModal = ({
                 <div className={styles.header}>
                     <div className={styles.headerLeft}>
                         <h2>Live Preview</h2>
-                        {recipients.length > 0 && (
-                            <select
-                                value={previewIndex}
-                                onChange={(e) => onPreviewIndexChange(Number(e.target.value))}
-                                className={styles.recipientSelector}
-                            >
-                                {recipients.map((r, idx) => (
-                                    <option key={r.id} value={idx}>
-                                        {r[fields[0]?.name] || `Recipient ${idx + 1}`}
-                                    </option>
-                                ))}
-                            </select>
-                        )}
+                        <div className={styles.headerControls}>
+                            <div className={styles.subjectContainer}>
+                                <label className={styles.subjectLabel}>Subject</label>
+                                <div className={styles.subjectDisplay}>
+                                    {subject || <span className={styles.emptySubject}>No subject</span>}
+                                </div>
+                            </div>
+                            {recipients.length > 0 && (
+                                <div className={styles.recipientContainer}>
+                                    <label className={styles.recipientLabel}>Recipient</label>
+                                    <select
+                                        value={previewIndex}
+                                        onChange={(e) => onPreviewIndexChange(Number(e.target.value))}
+                                        className={styles.recipientSelector}
+                                    >
+                                        {recipients.map((r, idx) => (
+                                            <option key={r.id} value={idx}>
+                                                {r[fields[0]?.name] || `Recipient ${idx + 1}`}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+                        </div>
                     </div>
                     <button className={styles.closeBtn} onClick={onClose}>
                         ×

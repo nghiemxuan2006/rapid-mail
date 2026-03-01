@@ -32,11 +32,21 @@ const base64UrlEncode = (input: string) => {
         .replace(/=+$/, '');
 };
 
+const encodeHeaderValue = (value: string): string => {
+    // Check if the value contains non-ASCII characters
+    if (/[^\x00-\x7F]/.test(value)) {
+        // RFC 2047 MIME encoding: =?charset?encoding?encoded-text?=
+        const encoded = Buffer.from(value).toString('base64');
+        return `=?UTF-8?B?${encoded}?=`;
+    }
+    return value;
+};
+
 const buildRawMessage = (from: string, to: string[], subject: string, content: string) => {
     const headers = [
         `From: ${from}`,
         `To: ${to.join(', ')}`,
-        `Subject: ${subject}`,
+        `Subject: ${encodeHeaderValue(subject)}`,
         'Content-Type: text/html; charset="UTF-8"'
     ];
 

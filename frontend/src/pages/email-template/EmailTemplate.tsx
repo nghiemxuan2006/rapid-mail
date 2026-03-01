@@ -295,6 +295,7 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                 isOpen={isPreviewModalOpen}
                 onClose={() => setIsPreviewModalOpen(false)}
                 content={content}
+                subject={campaignSubject}
                 recipients={recipients}
                 fields={fields}
                 previewIndex={previewIndex}
