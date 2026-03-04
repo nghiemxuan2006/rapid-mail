@@ -40,7 +40,7 @@ export const deleteCampaignById = async (req: Request, res: Response, next: Next
         if (!campaign) {
             throw new NOT_FOUND_ERROR('Campaign not found');
         }
-        if (campaign.user_id.toString() !== req.user.id) {
+        if (campaign.user_id.toString() !== req.user.sub) {
             throw new NOT_FOUND_ERROR('You do not have permission to delete this campaign');
         }
         await Campaign.findByIdAndDelete(req.params.id);
@@ -56,7 +56,7 @@ export const updateCampaign = async (req: Request, res: Response, next: NextFunc
         if (!campaign) {
             throw new NOT_FOUND_ERROR('Campaign not found');
         }
-        if (campaign.user_id.toString() !== req.user.id) {
+        if (campaign.user_id.toString() !== req.user.sub) {
             throw new NOT_FOUND_ERROR('You do not have permission to update this campaign');
         }
         const { name, subject, content, recipients } = req.body;

@@ -367,6 +367,19 @@
   }
 }
 
+.invalidCell {
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.invalidInput {
+  border-color: #ef4444 !important;
+
+  &::placeholder {
+    color: #ef4444;
+    font-weight: 500;
+  }
+}
+
 .emptyState {
   display: flex;
   flex-direction: column;
@@ -409,4 +422,27 @@
   font-size: 0.95rem;
   color: #9ca3af;
   font-weight: 500;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px 24px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.saveBtn {
+  padding: 10px 32px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+
+  &:hover {
+    background: #1d4ed8;
+  }
 }

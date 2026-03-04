@@ -39,6 +39,11 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
     ]);
     const [recipients, setRecipients] = useState<Recipient[]>([]);
 
+    // Filter out empty rows (used for sending/saving)
+    const filledRecipients = recipients.filter(recipient =>
+        fields.some(field => (recipient[field.name] || '').trim() !== '')
+    );
+
     // Modal states
     const [previewIndex, setPreviewIndex] = useState(0);
     const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
@@ -113,36 +118,9 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
         mailEditorRef.current?.insertVariable(fieldName);
     };
 
-    const handleUpdateRecipient = (
-        recipientId: string,
-        fieldName: string,
-        value: string
-    ) => {
-        setRecipients(
-            recipients.map((r) =>
-                r.id === recipientId ? { ...r, [fieldName]: value } : r
-            )
-        );
-    };
-
-    const handleAddRecipient = () => {
-        const newRecipient: Recipient = {
-            id: Date.now().toString(),
-            Email: '',
-        };
-        fields.forEach((f) => {
-            newRecipient[f.name] = '';
-        });
-        setRecipients([...recipients, newRecipient]);
-    };
-
-    const handleDeleteRecipient = (recipientId: string) => {
-        setRecipients(recipients.filter((r) => r.id !== recipientId));
-    };
-
     const onSendEmails = async () => {
         try {
-            await dispatch(sendMultipleEmailsApi({ recipients, content, subject: campaignSubject })).unwrap();
+            await dispatch(sendMultipleEmailsApi({ recipients: filledRecipients, content, subject: campaignSubject })).unwrap();
             showNotifications('success', 'Đã gửi email thành công đến tất cả người nhận');
         } catch (err) {
             showNotifications('error', err instanceof Error ? err.message : 'Gửi email thất bại');
@@ -158,7 +136,7 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
             showNotifications('error', 'Vui lòng nhập subject email');
             return;
         }
-        if (recipients.length === 0) {
+        if (filledRecipients.length === 0) {
             showNotifications('error', 'Vui lòng thêm ít nhất một người nhận');
             return;
         }
@@ -171,7 +149,7 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                 name: campaignName,
                 subject: campaignSubject,
                 content: content,
-                recipients: recipients,
+                recipients: filledRecipients,
                 createdAt: campaign.createdAt,
                 updatedAt: new Date().toISOString().split('T')[0],
             };
@@ -181,7 +159,7 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                 name: campaignName,
                 subject: campaignSubject,
                 content: content,
-                recipients: recipients,
+                recipients: filledRecipients,
             };
             onCreate?.(newCampaign);
         }
@@ -309,11 +287,10 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                 onClose={() => setIsRecipientsModalOpen(false)}
                 recipients={recipients}
                 fields={fields}
-                onUpdateRecipient={handleUpdateRecipient}
-                onAddRecipient={handleAddRecipient}
-                onDeleteRecipient={handleDeleteRecipient}
-                onAddField={handleAddField}
-                onDeleteField={handleDeleteField}
+                onSave={(newRecipients, newFields) => {
+                    setRecipients(newRecipients);
+                    setFields(newFields);
+                }}
             />
         </div>
     );

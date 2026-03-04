@@ -20,39 +20,130 @@ interface RecipientsModalProps {
     onClose: () => void;
     recipients: Recipient[];
     fields: Field[];
-    onUpdateRecipient: (recipientId: string, fieldName: string, value: string) => void;
-    onAddRecipient: () => void;
-    onDeleteRecipient: (recipientId: string) => void;
-    onAddField: (fieldName: string) => void;
-    onDeleteField: (fieldId: string) => void;
+    onSave: (recipients: Recipient[], fields: Field[]) => void;
 }
+
+const createEmptyRecipient = (fields: Field[]): Recipient => {
+    const recipient: Recipient = { id: Date.now().toString(), Email: '' };
+    fields.forEach(f => { recipient[f.name] = ''; });
+    return recipient;
+};
 
 const RecipientsModal = ({
     isOpen,
     onClose,
     recipients,
     fields,
-    onUpdateRecipient,
-    onAddRecipient,
-    onDeleteRecipient,
-    onAddField,
-    onDeleteField
+    onSave,
 }: RecipientsModalProps) => {
+    const [localRecipients, setLocalRecipients] = React.useState<Recipient[]>([]);
+    const [localFields, setLocalFields] = React.useState<Field[]>([]);
     const [newFieldName, setNewFieldName] = React.useState('');
     const [selectedRows, setSelectedRows] = React.useState<Set<string>>(new Set());
+    const [invalidCells, setInvalidCells] = React.useState<Set<string>>(new Set());
+
+    // Sync local state from parent when modal opens
+    React.useEffect(() => {
+        if (isOpen) {
+            setLocalFields([...fields]);
+            setLocalRecipients(recipients.length > 0 ? [...recipients] : [createEmptyRecipient(fields)]);
+            setSelectedRows(new Set());
+            setInvalidCells(new Set());
+            setNewFieldName('');
+        }
+    }, [isOpen]);
+
+    // Auto-add empty row when all rows are complete
+    React.useEffect(() => {
+        if (!isOpen || localRecipients.length === 0) return;
+
+        const allComplete = localRecipients.every(recipient =>
+            localFields.every(field => (recipient[field.name] || '').trim() !== '')
+        );
+
+        if (allComplete) {
+            setLocalRecipients(prev => [...prev, createEmptyRecipient(localFields)]);
+        }
+    }, [isOpen, localRecipients, localFields]);
+
+    const handleRecipientFieldChange = (recipientId: string, fieldName: string, value: string) => {
+        setLocalRecipients(prev =>
+            prev.map(r => r.id === recipientId ? { ...r, [fieldName]: value } : r)
+        );
+        // Clear error for this cell when user types
+        if (invalidCells.size > 0) {
+            const key = `${recipientId}:${fieldName}`;
+            if (invalidCells.has(key) && value.trim()) {
+                setInvalidCells(prev => {
+                    const next = new Set(prev);
+                    next.delete(key);
+                    return next;
+                });
+            }
+        }
+    };
+
+    const handleAddRecipient = () => {
+        setLocalRecipients(prev => [...prev, createEmptyRecipient(fields)]);
+    };
+
+    const handleDeleteSelected = () => {
+        if (selectedRows.size === 0) return;
+        if (window.confirm(`Delete ${selectedRows.size} recipient(s)?`)) {
+            setLocalRecipients(prev => prev.filter(r => !selectedRows.has(r.id)));
+            setSelectedRows(new Set());
+        }
+    };
+
+    const handleSave = () => {
+        // Filter out completely empty rows
+        const filled = localRecipients.filter(recipient =>
+            localFields.some(field => (recipient[field.name] || '').trim() !== '')
+        );
+
+        // Validate: check if any filled row has missing or invalid fields
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const errors = new Set<string>();
+        filled.forEach(recipient => {
+            localFields.forEach(field => {
+                const value = (recipient[field.name] || '').trim();
+                if (!value) {
+                    errors.add(`${recipient.id}:${field.name}`);
+                } else if (field.name.toLowerCase() === 'email' && !emailRegex.test(value)) {
+                    errors.add(`${recipient.id}:${field.name}`);
+                }
+            });
+        });
+
+        if (errors.size > 0) {
+            setInvalidCells(errors);
+            return;
+        }
+
+        onSave(filled, localFields);
+        onClose();
+    };
 
     if (!isOpen) return null;
 
     const handleAddField = () => {
         if (newFieldName.trim()) {
-            onAddField(newFieldName);
+            const newField: Field = {
+                id: Date.now().toString(),
+                name: newFieldName,
+            };
+            setLocalFields(prev => [...prev, newField]);
+            // Add empty value for the new field to all local recipients
+            setLocalRecipients(prev =>
+                prev.map(r => ({ ...r, [newFieldName]: '' }))
+            );
             setNewFieldName('');
         }
     };
 
     const handleSelectAll = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.checked) {
-            setSelectedRows(new Set(recipients.map(r => r.id)));
+            setSelectedRows(new Set(localRecipients.map(r => r.id)));
         } else {
             setSelectedRows(new Set());
         }
@@ -68,16 +159,8 @@ const RecipientsModal = ({
         setSelectedRows(newSelected);
     };
 
-    const handleDeleteSelected = () => {
-        if (selectedRows.size === 0) return;
-        if (window.confirm(`Delete ${selectedRows.size} recipient(s)?`)) {
-            selectedRows.forEach(id => onDeleteRecipient(id));
-            setSelectedRows(new Set());
-        }
-    };
-
-    const isAllSelected = recipients.length > 0 && selectedRows.size === recipients.length;
-    const isPartialSelected = selectedRows.size > 0 && selectedRows.size < recipients.length;
+    const isAllSelected = localRecipients.length > 0 && selectedRows.size === localRecipients.length;
+    const isPartialSelected = selectedRows.size > 0 && selectedRows.size < localRecipients.length;
 
     return (
         <div className={styles.overlay} onClick={onClose}>
@@ -86,7 +169,7 @@ const RecipientsModal = ({
                     <div>
                         <h2>Manage Recipients</h2>
                         <p className={styles.subtitle}>
-                            {recipients.length} recipient{recipients.length !== 1 ? 's' : ''} • {fields.length} field{fields.length !== 1 ? 's' : ''}
+                            {localRecipients.length} recipient{localRecipients.length !== 1 ? 's' : ''} • {localFields.length} field{localFields.length !== 1 ? 's' : ''}
                         </p>
                     </div>
                     <button className={styles.closeBtn} onClick={onClose}>
@@ -97,7 +180,7 @@ const RecipientsModal = ({
                 <div className={styles.content}>
                     <div className={styles.topSection}>
                         <div className={styles.actions}>
-                            <button className={styles.addBtn} onClick={onAddRecipient}>
+                            <button className={styles.addBtn} onClick={handleAddRecipient}>
                                 <svg className={styles.icon} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                                 </svg>
@@ -158,7 +241,7 @@ const RecipientsModal = ({
                                             />
                                         </TableCell>
                                         <TableCell className={styles.sttCol}>STT</TableCell>
-                                        {fields.map(field => (
+                                        {localFields.map(field => (
                                             <TableCell key={field.id} className={styles.fieldHeader}>
                                                 <div className={styles.fieldHeaderContent}>
                                                     <span>{field.name}</span>
@@ -167,7 +250,7 @@ const RecipientsModal = ({
                                                             className={styles.deleteFieldBtn}
                                                             onClick={() => {
                                                                 if (window.confirm(`Delete variable "${field.name}"?`)) {
-                                                                    onDeleteField(field.id);
+                                                                    setLocalFields(prev => prev.filter(f => f.id !== field.id));
                                                                 }
                                                             }}
                                                             title="Delete variable"
@@ -183,7 +266,7 @@ const RecipientsModal = ({
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
-                                    {recipients.map((recipient, index) => (
+                                    {localRecipients.map((recipient, index) => (
                                         <TableRow
                                             key={recipient.id}
                                             selected={selectedRows.has(recipient.id)}
@@ -210,16 +293,16 @@ const RecipientsModal = ({
                                                 />
                                             </TableCell>
                                             <TableCell className={styles.sttCol}>{index + 1}</TableCell>
-                                            {fields.map(field => {
+                                            {localFields.map(field => {
                                                 const value = recipient[field.name] || '';
-                                                const isEmpty = !value.trim();
+                                                const isInvalid = invalidCells.has(`${recipient.id}:${field.name}`);
                                                 return (
-                                                    <TableCell key={field.id} className={isEmpty ? styles.emptyCell : ''}>
+                                                    <TableCell key={field.id} className={isInvalid ? styles.invalidCell : ''}>
                                                         <input
                                                             type="text"
                                                             value={value}
-                                                            onChange={(e) => onUpdateRecipient(recipient.id, field.name, e.target.value)}
-                                                            className={styles.cellInput}
+                                                            onChange={(e) => handleRecipientFieldChange(recipient.id, field.name, e.target.value)}
+                                                            className={`${styles.cellInput} ${isInvalid ? styles.invalidInput : ''}`}
                                                             placeholder={`Enter ${field.name.toLowerCase()}`}
                                                         />
                                                     </TableCell>
@@ -233,7 +316,7 @@ const RecipientsModal = ({
                     </div>
                 </div>
 
-                {recipients.length === 0 && (
+                {localRecipients.length === 0 && (
                     <div className={styles.emptyState}>
                         <div className={styles.emptyIcon}>
                             <ContactsIcon className={styles.emptyIconSvg} />
@@ -242,6 +325,12 @@ const RecipientsModal = ({
                         <div className={styles.emptyHint}>Click "Add Recipient" to get started</div>
                     </div>
                 )}
+
+                <div className={styles.footer}>
+                    <button className={styles.saveBtn} onClick={handleSave}>
+                        Save
+                    </button>
+                </div>
             </div>
         </div>
     );
