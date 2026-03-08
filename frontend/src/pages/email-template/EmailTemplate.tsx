@@ -1,10 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import styles from './EmailTemplate.module.scss';
 import MailEditor, { type MailEditorRef } from '@/components/email-template/MailEditor';
-import VariablesPanel from '@/components/email-template/VariablesPanel';
 import PreviewModal from '@/components/email-template/PreviewModal';
 import RecipientsModal from '@/components/email-template/RecipientsModal';
-import { ContactsIcon, SendEmailIcon, DuplicateIcon, ArrowLeftIcon } from '@/assets/icons';
+import { ContactsIcon, ArrowLeftIcon, EyeIcon, CalendarIcon, FloppyDiskIcon, PaperclipIcon, PlusIcon, InfoIcon } from '@/assets/icons';
 import { sendMultipleEmailsApi } from '@/features/email/emailApi';
 import { showNotifications } from '@/utils';
 import { useAppDispatch } from '@/app/hook';
@@ -27,8 +26,10 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
     const mailEditorRef = useRef<MailEditorRef>(null);
 
     // UI state
-    const [showVariablesPanel, setShowVariablesPanel] = useState(true);
     const [isRecipientsModalOpen, setIsRecipientsModalOpen] = useState(false);
+    const [selectedVariable, setSelectedVariable] = useState('');
+    const [showNewFieldInput, setShowNewFieldInput] = useState(false);
+    const [newFieldName, setNewFieldName] = useState('');
 
     // Campaign data
     const [content, setContent] = useState('');
@@ -66,12 +67,10 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                 }));
                 setFields(extractedFields);
             } else {
-                // Reset to default when no recipients
                 setRecipients([]);
                 setFields([{ id: 'default-email', name: 'Email' }]);
             }
         } else {
-            // Reset all fields when creating new campaign
             setCampaignName('');
             setCampaignSubject('');
             setContent('');
@@ -86,7 +85,6 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
             name: fieldName,
         };
         setFields([...fields, newField]);
-        // Add empty value to all recipients
         setRecipients(
             recipients.map((r) => ({
                 ...r,
@@ -99,7 +97,6 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
         const fieldToDelete = fields.find((f) => f.id === fieldId);
         if (!fieldToDelete) return;
 
-        // Prevent deleting Email field
         if (fieldToDelete.name.toLowerCase() === 'email') {
             alert('Email field cannot be deleted as it is required.');
             return;
@@ -118,31 +115,44 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
         mailEditorRef.current?.insertVariable(fieldName);
     };
 
+    const handleVariableSelect = (value: string) => {
+        if (value) {
+            handleInsertVariable(value);
+            setSelectedVariable('');
+        }
+    };
+
+    const handleCreateNewField = () => {
+        if (newFieldName.trim()) {
+            handleAddField(newFieldName.trim());
+            setNewFieldName('');
+            setShowNewFieldInput(false);
+        }
+    };
+
     const onSendEmails = async () => {
         try {
             await dispatch(sendMultipleEmailsApi({ recipients: filledRecipients, content, subject: campaignSubject })).unwrap();
-            showNotifications('success', 'Đã gửi email thành công đến tất cả người nhận');
+            showNotifications('success', 'Sent emails successfully to all recipients');
         } catch (err) {
-            showNotifications('error', err instanceof Error ? err.message : 'Gửi email thất bại');
+            showNotifications('error', err instanceof Error ? err.message : 'Failed to send emails');
         }
     }
 
     const handleSaveCampaign = () => {
         if (!campaignName.trim()) {
-            showNotifications('error', 'Vui lòng nhập tên campaign');
+            showNotifications('error', 'Please enter a campaign name');
             return;
         }
         if (!campaignSubject.trim()) {
-            showNotifications('error', 'Vui lòng nhập subject email');
+            showNotifications('error', 'Please enter an email subject');
             return;
         }
         if (filledRecipients.length === 0) {
-            showNotifications('error', 'Vui lòng thêm ít nhất một người nhận');
+            showNotifications('error', 'Please add at least one recipient');
             return;
         }
 
-        // If campaign has createdAt, it's an existing campaign (update)
-        // Otherwise, it's a new campaign (create)
         if (campaign?.createdAt) {
             const updatedCampaign: Campaign = {
                 _id: campaign._id,
@@ -164,7 +174,7 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
             onCreate?.(newCampaign);
         }
 
-        showNotifications('success', campaign?.createdAt ? 'Đã cập nhật campaign' : 'Đã tạo campaign mới');
+        showNotifications('success', campaign?.createdAt ? 'Campaign updated' : 'Campaign created');
     }
 
     return (
@@ -177,65 +187,52 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                             <ArrowLeftIcon className={styles.icon} />
                         </button>
                     )}
-                    <div className={styles.campaignNameWrapper}>
-                        <input
-                            type="text"
-                            placeholder="Campaign name..."
-                            value={campaignName}
-                            onChange={(e) => setCampaignName(e.target.value)}
-                            className={styles.campaignNameInput}
-                        />
-                    </div>
+                    <input
+                        type="text"
+                        placeholder="Campaign name..."
+                        value={campaignName}
+                        onChange={(e) => setCampaignName(e.target.value)}
+                        className={styles.campaignNameInput}
+                    />
                 </div>
 
                 <div className={styles.topBarActions}>
                     <button
-                        className={styles.toggleBtn}
-                        onClick={() => setShowVariablesPanel(!showVariablesPanel)}
-                        title="Toggle Variables Panel"
-                    >
-                        {showVariablesPanel ? '◧' : '◨'} Variables
-                    </button>
-                    <button
-                        className={styles.toggleBtn}
-                        onClick={() => setIsRecipientsModalOpen(true)}
-                        title="Manage Recipients"
-                    >
-                        <ContactsIcon className={styles.icon} />
-                        Recipients
-                    </button>
-                    <button
                         className={styles.actionBtn}
                         onClick={() => setIsPreviewModalOpen(true)}
                     >
-                        <SendEmailIcon className={styles.icon} />
+                        <EyeIcon className={styles.icon} />
                         Preview
+                    </button>
+                    <button className={styles.actionBtn}>
+                        <CalendarIcon className={styles.icon} />
+                        Schedule
                     </button>
                     {(onCreate || onUpdate) && (
                         <button
-                            className={styles.saveBtn}
+                            className={styles.actionBtn}
                             onClick={handleSaveCampaign}
                         >
-                            <DuplicateIcon className={styles.icon} />
-                            {campaign?.createdAt ? 'Update' : 'Save'}
+                            <FloppyDiskIcon className={styles.icon} />
+                            Save
                         </button>
                     )}
-                    {/* <button
-                        className={styles.sendBtn}
-                        onClick={onSendEmails}
+                    <button
+                        className={styles.recipientsBtn}
+                        onClick={() => setIsRecipientsModalOpen(true)}
                     >
-                        <SendEmailIcon className={styles.icon} />
-                        Send Now
-                    </button> */}
+                        <ContactsIcon className={styles.icon} />
+                        Recipients ({filledRecipients.length})
+                    </button>
                 </div>
             </div>
 
-            {/* Main Workspace */}
-            <div className={styles.workspace}>
-                {/* Center - Email Editor */}
-                <div className={styles.centerContent}>
-                    <div className={styles.subjectField}>
-                        <label>Email Subject *</label>
+            {/* Main Content */}
+            <div className={styles.mainContent}>
+                <div className={styles.card}>
+                    {/* Subject */}
+                    <div className={styles.section}>
+                        <label className={styles.sectionLabel}>Email Subject</label>
                         <input
                             type="text"
                             placeholder="Your email subject..."
@@ -244,28 +241,71 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                             className={styles.subjectInput}
                         />
                     </div>
-                    <div className={styles.editorContainer}>
-                        <MailEditor
-                            ref={mailEditorRef}
-                            content={content}
-                            onContentChange={setContent}
-                        />
+
+                    {/* Email Content */}
+                    <div className={styles.section}>
+                        <div className={styles.sectionLabelRow}>
+                            <label className={styles.sectionLabel}>Email Content</label>
+                            {fields.length > 0 && (
+                                <div className={styles.infoTooltipWrapper}>
+                                    <InfoIcon className={styles.infoIcon} />
+                                    <div className={styles.infoTooltip}>
+                                        <span>You can use the following variables in your email:</span>
+                                        <div className={styles.tooltipVariables}>
+                                            {fields.map(field => (
+                                                <span key={field.id} className={styles.tooltipBadge}>
+                                                    {`{{${field.name}}}`}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Variable insertion bar */}
+                        <div className={styles.variableBar}>
+                            <div className={styles.variableBarLeft}>
+                                <span className={styles.variableLabel}>Insert variable:</span>
+                                <select
+                                    className={styles.variableSelect}
+                                    value={selectedVariable}
+                                    onChange={(e) => handleVariableSelect(e.target.value)}
+                                >
+                                    <option value="">Select variable to insert...</option>
+                                    {fields.map(field => (
+                                        <option key={field.id} value={field.name}>
+                                            {`{{${field.name}}}`}
+                                        </option>
+                                    ))}
+                                </select>
+
+                                <button
+                                    className={styles.createFieldBtn}
+                                    onClick={() => setShowNewFieldInput(true)}
+                                >
+                                    <PlusIcon className={styles.smallIcon} />
+                                    Create new variable
+                                </button>
+                            </div>
+
+                            <button className={styles.attachBtn}>
+                                <PaperclipIcon className={styles.icon} />
+                                Attachment
+                            </button>
+                        </div>
+
+                        {/* Editor */}
+                        <div className={styles.editorContainer}>
+                            <MailEditor
+                                ref={mailEditorRef}
+                                content={content}
+                                onContentChange={setContent}
+                            />
+                        </div>
                     </div>
                 </div>
 
-                {/* Right Panels - Toggleable */}
-                {showVariablesPanel && (
-                    <div className={styles.rightPanel}>
-                        <VariablesPanel
-                            fields={fields}
-                            recipients={recipients}
-                            onInsert={handleInsertVariable}
-                            onAddField={handleAddField}
-                            onDeleteField={handleDeleteField}
-                            onClose={() => setShowVariablesPanel(false)}
-                        />
-                    </div>
-                )}
             </div>
 
             {/* Preview Modal */}
@@ -280,6 +320,58 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                 onPreviewIndexChange={setPreviewIndex}
                 onSend={onSendEmails}
             />
+
+            {/* New Variable Modal */}
+            {showNewFieldInput && (
+                <div className={styles.modalOverlay} onClick={() => { setShowNewFieldInput(false); setNewFieldName(''); }}>
+                    <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+                        <div className={styles.modalHeader}>
+                            <h3 className={styles.modalTitle}>Add new variable</h3>
+                            <button
+                                className={styles.modalCloseBtn}
+                                onClick={() => { setShowNewFieldInput(false); setNewFieldName(''); }}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="20" height="20">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div className={styles.modalBody}>
+                            <label className={styles.modalLabel}>Variable name:</label>
+                            <input
+                                type="text"
+                                placeholder="Variable name"
+                                value={newFieldName}
+                                onChange={(e) => setNewFieldName(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleCreateNewField();
+                                    if (e.key === 'Escape') {
+                                        setShowNewFieldInput(false);
+                                        setNewFieldName('');
+                                    }
+                                }}
+                                className={styles.modalInput}
+                                autoFocus
+                            />
+                        </div>
+                        <div className={styles.modalFooter}>
+                            <button
+                                className={styles.modalCancelBtn}
+                                onClick={() => { setShowNewFieldInput(false); setNewFieldName(''); }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                className={styles.modalConfirmBtn}
+                                onClick={handleCreateNewField}
+                                disabled={!newFieldName.trim()}
+                            >
+                                Add
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Recipients Modal */}
             <RecipientsModal

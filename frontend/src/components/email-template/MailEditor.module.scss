@@ -17,8 +17,9 @@
 
 .quillContainer {
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
   padding: 0;
+  min-height: 0;
 
   // Override Quill's default snow theme styles
   :global {
@@ -27,11 +28,12 @@
       font-size: 0.95rem;
       border: none;
       height: 100%;
+      overflow-y: auto;
     }
 
     .ql-editor {
       padding: 16px;
-      min-height: 100%;
+      min-height: 200px;
       line-height: 1.6;
       color: #333;
 

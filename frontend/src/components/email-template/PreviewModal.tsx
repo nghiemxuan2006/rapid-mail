@@ -1,6 +1,15 @@
+import { useState } from 'react';
+import { useLockBodyScroll } from '@/hooks/useLockBodyScroll';
 import type { Field } from '@/pages/email-template/EmailTemplate';
 import styles from './PreviewModal.module.scss';
 import type { Recipient } from '@/schema/campaign';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 
 interface PreviewModalProps {
     isOpen: boolean;
@@ -25,119 +34,108 @@ const PreviewModal = ({
     onPreviewIndexChange,
     onSend
 }: PreviewModalProps) => {
+    const [selectOpen, setSelectOpen] = useState(false);
+    useLockBodyScroll(isOpen);
+
     if (!isOpen) return null;
 
     const currentRecipient = recipients[previewIndex] || {};
 
-    const renderPreview = () => {
-        let preview = content;
-        const missingVariables: string[] = [];
-
-        // Replace variables in format [FieldName] or {{FieldName || 'fallback'}}
+    const resolveText = (text: string) => {
+        let resolved = text;
         fields.forEach((field) => {
             const value = currentRecipient[field.name] || '';
-
-            // Track missing variables
-            if (!value) {
-                // Check if this variable is actually used in the content
-                const simpleVarRegex = new RegExp(`\\[${field.name}\\]`, 'g');
-                const fallbackVarRegex = new RegExp(`\\{\\{${field.name}\\s*\\|\\|\\s*['"]([^'"]+)['"]\\}\\}`, 'g');
-
-                if (simpleVarRegex.test(content) && !fallbackVarRegex.test(content)) {
-                    missingVariables.push(field.name);
-                }
-            }
-
             // Replace [FieldName]
-            preview = preview.replace(
+            resolved = resolved.replace(
                 new RegExp(`\\[${field.name}\\]`, 'g'),
-                value ?
-                    `<span class="resolved-var">${value}</span>` :
-                    `<span class="missing-var" title="Missing data">⚠️ [${field.name}]</span>`
+                value ? `<strong>${value}</strong>` : `[${field.name}]`
             );
-
             // Replace {{FieldName || 'fallback'}}
-            preview = preview.replace(
+            resolved = resolved.replace(
                 new RegExp(`\\{\\{${field.name}\\s*\\|\\|\\s*['"]([^'"]+)['"]\\}\\}`, 'g'),
                 (_match, fallback) => {
                     const displayValue = value || fallback;
-                    return `<span class="${value ? 'resolved-var' : 'fallback-var'}" title="${value ? 'From data' : 'Fallback value'}">${displayValue}</span>`;
+                    return `<strong>${displayValue}</strong>`;
                 }
             );
         });
-
-        return { preview, missingVariables };
+        return resolved;
     };
 
-    const { preview, missingVariables } = renderPreview();
+    const resolvedSubject = resolveText(subject);
+    const resolvedContent = resolveText(content);
 
     return (
-        <div className={styles.overlay} onClick={onClose}>
+        <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
             <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+                {/* Header */}
                 <div className={styles.header}>
-                    <div className={styles.headerLeft}>
-                        <h2>Live Preview</h2>
-                        <div className={styles.headerControls}>
-                            <div className={styles.subjectContainer}>
-                                <label className={styles.subjectLabel}>Subject</label>
-                                <div className={styles.subjectDisplay}>
-                                    {subject || <span className={styles.emptySubject}>No subject</span>}
-                                </div>
-                            </div>
-                            {recipients.length > 0 && (
-                                <div className={styles.recipientContainer}>
-                                    <label className={styles.recipientLabel}>Recipient</label>
-                                    <select
-                                        value={previewIndex}
-                                        onChange={(e) => onPreviewIndexChange(Number(e.target.value))}
-                                        className={styles.recipientSelector}
-                                    >
-                                        {recipients.map((r, idx) => (
-                                            <option key={r.id} value={idx}>
-                                                {r[fields[0]?.name] || `Recipient ${idx + 1}`}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-                        </div>
-                    </div>
+                    <h2 className={styles.title}>Email Preview</h2>
                     <button className={styles.closeBtn} onClick={onClose}>
-                        ×
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="20" height="20">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
                     </button>
                 </div>
 
-                {/* Missing Data Warning */}
-                {missingVariables.length > 0 && (
-                    <div className={styles.warningBanner}>
-                        <span className={styles.warningIcon}>⚠️</span>
-                        <div className={styles.warningContent}>
-                            <div className={styles.warningTitle}>Missing Data</div>
-                            <div className={styles.warningText}>
-                                {missingVariables.join(', ')}
-                            </div>
-                        </div>
+                {/* Recipient Selector */}
+                {recipients.length > 0 && (
+                    <div className={styles.recipientSection}>
+                        <label className={styles.recipientLabel}>Preview for:</label>
+                        <Select
+                            value={String(previewIndex)}
+                            onValueChange={(value) => onPreviewIndexChange(Number(value))}
+                            onOpenChange={setSelectOpen}
+                        >
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent position="popper" className="z-1100 bg-white shadow-lg border border-gray-200 rounded-lg" sideOffset={4}>
+                                {recipients.map((r, idx) => (
+                                    <SelectItem key={r.id} value={String(idx)}>
+                                        {r[fields[0]?.name] || `Recipient ${idx + 1}`}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
                 )}
 
-                <div className={styles.previewContent}>
+                {/* Preview Card */}
+                <div className={styles.previewCard} style={selectOpen ? { overflow: 'hidden' } : undefined}>
                     {content ? (
-                        <div
-                            className={styles.previewHtml}
-                            dangerouslySetInnerHTML={{ __html: preview }}
-                        />
+                        <>
+                            <div className={styles.previewSection}>
+                                <span className={styles.previewLabel}>Subject:</span>
+                                <div
+                                    className={styles.previewSubject}
+                                    dangerouslySetInnerHTML={{ __html: resolvedSubject || '<span class="empty">No subject</span>' }}
+                                />
+                            </div>
+                            <div className={styles.divider} />
+                            <div className={styles.previewSection}>
+                                <span className={styles.previewLabel}>Content:</span>
+                                <div
+                                    className={styles.previewContent}
+                                    dangerouslySetInnerHTML={{ __html: resolvedContent }}
+                                />
+                            </div>
+                        </>
                     ) : (
                         <div className={styles.emptyState}>
                             <div className={styles.emptyIcon}>📧</div>
                             <div className={styles.emptyText}>Start writing your email template</div>
-                            <div className={styles.emptyHint}>Use variables to personalize for each recipient</div>
                         </div>
                     )}
                 </div>
 
+                {/* Footer */}
                 <div className={styles.footer}>
                     <button className={styles.sendBtn} onClick={onSend}>
-                        Send Mail
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="18" height="18">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+                        </svg>
+                        Send Email
                     </button>
                 </div>
             </div>
