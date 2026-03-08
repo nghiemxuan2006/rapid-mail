@@ -5,6 +5,11 @@
   gap: clamp(1.5rem, 3vw, 3rem);
   align-items: center;
   padding: clamp(1.5rem, 2vw, 2.5rem) clamp(1.5rem, 4vw, 3rem);
+  color: #eaf0ff;
+  background:
+    radial-gradient(circle at 10% 20%, rgba(115, 186, 255, 0.35), transparent 20%),
+    radial-gradient(circle at 80% 0%, rgba(255, 163, 243, 0.28), transparent 24%),
+    linear-gradient(135deg, #0c1223, #0a0f1d 45%, #080d18 70%);
 }
 
 .panel {

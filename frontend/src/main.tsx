@@ -1,5 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import { GoogleOAuthProvider } from '@react-oauth/google'
+import './styles/tailwind.css'
+import './styles/theme.css'
 import './index.css'
 import App from './App.tsx'
 import { Provider } from 'react-redux'

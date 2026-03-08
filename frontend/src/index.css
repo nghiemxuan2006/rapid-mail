@@ -2,13 +2,6 @@
 
 :root {
   font-family: 'Space Grotesk', 'DM Sans', 'Segoe UI', sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-  color: #0b1022;
-  background: radial-gradient(circle at 10% 20%, rgba(115, 186, 255, 0.35), transparent 20%),
-    radial-gradient(circle at 80% 0%, rgba(255, 163, 243, 0.28), transparent 24%),
-    linear-gradient(135deg, #0c1223, #0a0f1d 45%, #080d18 70%);
-  min-height: 100vh;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -25,4 +18,5 @@ body {
 
 a {
   color: inherit;
+  text-decoration: none;
 }

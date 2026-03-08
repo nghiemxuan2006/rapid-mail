@@ -8,7 +8,7 @@ export interface Campaign {
     name: string;
     subject: string;
     content: string;
-    // status: 'draft' | 'sent' | 'scheduled';
+    status?: 'draft' | 'sent' | 'scheduled';
     recipients: Recipient[];
     createdAt: string;
     updatedAt: string;
