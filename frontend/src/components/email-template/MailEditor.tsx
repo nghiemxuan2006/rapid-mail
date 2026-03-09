@@ -1,7 +1,6 @@
 import { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react';
 import Quill from 'quill';
 import 'quill/dist/quill.snow.css';
-import styles from './MailEditor.module.scss';
 
 interface MailEditorProps {
     content: string;
@@ -107,7 +106,7 @@ const MailEditor = forwardRef<MailEditorRef, MailEditorProps>(({ content, onCont
     const characterCount = quillRef.current?.getText().length || 0;
 
     return (
-        <div className={styles.editor}>
+        <div className="flex flex-col h-full bg-card">
             {/* <div className={styles.toolLabel}>
                 💡 Click Fields tab to insert variables
             </div> */}
@@ -115,14 +114,14 @@ const MailEditor = forwardRef<MailEditorRef, MailEditorProps>(({ content, onCont
             <div
                 id="mail-editor-input"
                 ref={editorRef}
-                className={styles.quillContainer}
+                className="flex-1 overflow-hidden min-h-0"
             />
 
             {errors.length > 0 && (
-                <div className={styles.errorBox}>
-                    <div className={styles.errorTitle}>⚠️ Validation Issues:</div>
+                <div className="p-3 px-4 bg-yellow-50 border-y border-yellow-400">
+                    <div className="font-semibold text-yellow-800 mb-2 text-sm">⚠️ Validation Issues:</div>
                     {errors.map((error, idx) => (
-                        <div key={idx} className={styles.errorItem}>
+                        <div key={idx} className="text-yellow-800 text-xs ml-3">
                             {error}
                         </div>
                     ))}

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import styles from './RenameModal.module.scss';
 
 interface RenameModalProps {
     isOpen: boolean;
@@ -41,14 +40,24 @@ const RenameModal = ({
     if (!isOpen) return null;
 
     return (
-        <div className={styles.overlay} onClick={onCancel}>
-            <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-                <h2 className={styles.title}>Đổi tên Campaign</h2>
-                <div className={styles.inputGroup}>
-                    <label className={styles.label}>Tên campaign mới</label>
+        <div
+            className="fixed inset-0 z-999 flex items-center justify-center bg-black/50"
+            onClick={onCancel}
+        >
+            <div
+                className="w-[90%] max-w-100 animate-in zoom-in-95 fade-in-0 rounded-lg bg-card p-8 shadow-lg"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <h2 className="mb-5 text-xl font-semibold text-foreground">
+                    Đổi tên Campaign
+                </h2>
+                <div className="mb-6">
+                    <label className="mb-2 block text-sm font-medium text-foreground">
+                        Tên campaign mới
+                    </label>
                     <input
                         type="text"
-                        className={styles.input}
+                        className="w-full rounded-md border border-input bg-input-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                         value={inputValue}
                         onChange={(e) => setInputValue(e.target.value)}
                         onKeyPress={handleKeyPress}
@@ -56,16 +65,16 @@ const RenameModal = ({
                         autoFocus
                     />
                 </div>
-                <div className={styles.actions}>
+                <div className="flex justify-end gap-3">
                     <button
-                        className={styles.cancelButton + ' ' + styles.button}
+                        className="rounded-md bg-secondary px-5 py-2.5 text-sm font-medium text-secondary-foreground transition-all hover:not-disabled:bg-secondary/80 hover:not-disabled:-translate-y-px disabled:cursor-not-allowed disabled:opacity-60"
                         onClick={onCancel}
                         disabled={isLoading}
                     >
                         Hủy
                     </button>
                     <button
-                        className={styles.saveButton + ' ' + styles.button}
+                        className="rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:not-disabled:bg-primary/90 hover:not-disabled:-translate-y-px disabled:cursor-not-allowed disabled:opacity-60"
                         onClick={handleSave}
                         disabled={isLoading || !inputValue.trim() || inputValue === currentName}
                     >

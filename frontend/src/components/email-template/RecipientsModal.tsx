@@ -1,18 +1,20 @@
 import React from 'react';
 import { useLockBodyScroll } from '@/hooks/useLockBodyScroll';
 import type { Field } from '@/pages/email-template/EmailTemplate';
-import styles from './RecipientsModal.module.scss';
 import { ContactsIcon } from '@/assets/icons';
 import type { Recipient } from '@/schema/campaign';
 import {
     Table,
     TableBody,
     TableCell,
-    TableContainer,
     TableHead,
+    TableHeader,
     TableRow,
-    Checkbox,
-} from '@mui/material';
+} from '@/components/ui/table';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Plus, Upload, Save, Trash2, X } from 'lucide-react';
 
 interface RecipientsModalProps {
     isOpen: boolean;
@@ -41,6 +43,7 @@ const RecipientsModal = ({
     const [newFieldName, setNewFieldName] = React.useState('');
     const [selectedRows, setSelectedRows] = React.useState<Set<string>>(new Set());
     const [invalidCells, setInvalidCells] = React.useState<Set<string>>(new Set());
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     React.useEffect(() => {
         if (isOpen) {
@@ -92,6 +95,60 @@ const RecipientsModal = ({
         }
     };
 
+    const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const text = e.target?.result as string;
+            parseCSV(text);
+        };
+        reader.readAsText(file);
+
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    const parseCSV = (text: string) => {
+        const lines = text.split('\n').filter(line => line.trim());
+        if (lines.length === 0) return;
+
+        const headers = lines[0].split(',').map(h => h.trim());
+        const emailIndex = headers.findIndex(h => h.toLowerCase() === 'email');
+
+        if (emailIndex === -1) return;
+
+        const newFields: Field[] = [];
+        headers.forEach((header, index) => {
+            if (index !== emailIndex && header) {
+                const exists = localFields.some(f => f.name.toLowerCase() === header.toLowerCase());
+                if (!exists) {
+                    newFields.push({ id: `csv-${Date.now()}-${index}`, name: header });
+                }
+            }
+        });
+
+        const newRecipients: Recipient[] = [];
+        for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(',').map(v => v.trim());
+            const email = values[emailIndex] || '';
+            if (email) {
+                const recipient: Recipient = { id: `${Date.now()}-${i}`, Email: email };
+                headers.forEach((header, index) => {
+                    if (index !== emailIndex && header) {
+                        recipient[header] = values[index] || '';
+                    }
+                });
+                newRecipients.push(recipient);
+            }
+        }
+
+        setLocalFields(prev => [...prev, ...newFields]);
+        setLocalRecipients(prev => [...prev, ...newRecipients]);
+    };
+
     const handleSave = () => {
         const filled = localRecipients.filter(recipient =>
             localFields.some(field => (recipient[field.name] || '').trim() !== '')
@@ -135,8 +192,8 @@ const RecipientsModal = ({
         }
     };
 
-    const handleSelectAll = (event: React.ChangeEvent<HTMLInputElement>) => {
-        if (event.target.checked) {
+    const handleSelectAll = (checked: boolean) => {
+        if (checked) {
             setSelectedRows(new Set(localRecipients.map(r => r.id)));
         } else {
             setSelectedRows(new Set());
@@ -154,167 +211,182 @@ const RecipientsModal = ({
     };
 
     const isAllSelected = localRecipients.length > 0 && selectedRows.size === localRecipients.length;
-    const isPartialSelected = selectedRows.size > 0 && selectedRows.size < localRecipients.length;
+    const someSelected = selectedRows.size > 0;
 
     return (
-        <div className={styles.overlay} onClick={onClose}>
-            <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+            <div className="bg-background rounded-lg border shadow-lg w-[95vw] max-w-300 max-h-[80vh] flex flex-col p-6 gap-6" onClick={(e) => e.stopPropagation()}>
                 {/* Header */}
-                <div className={styles.header}>
-                    <div>
-                        <h2 className={styles.title}>Manage Recipients</h2>
-                        <p className={styles.subtitle}>
+                <div className="flex justify-between items-start">
+                    <div className="space-y-1">
+                        <h2 className="text-lg font-semibold leading-none">Manage Recipients</h2>
+                        <p className="text-sm text-muted-foreground">
                             {localRecipients.filter(r => localFields.some(f => (r[f.name] || '').trim() !== '')).length} recipients • {localFields.length} fields
                         </p>
                     </div>
-                    <button className={styles.closeBtn} onClick={onClose}>
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="20" height="20">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                        </svg>
+                    <button
+                        className="rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:outline-hidden"
+                        onClick={onClose}
+                    >
+                        <X className="size-4" />
+                        <span className="sr-only">Close</span>
                     </button>
                 </div>
 
-                {/* Content */}
-                <div className={styles.content}>
-                    {/* Actions Row */}
-                    <div className={styles.actionsRow}>
-                        <div className={styles.actionsLeft}>
-                            <button className={styles.addBtn} onClick={handleAddRecipient}>
-                                <svg className={styles.btnIcon} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                                </svg>
-                                Add Recipient
-                            </button>
-                            <button className={styles.importBtn}>
-                                <svg className={styles.btnIcon} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
-                                </svg>
-                                Import CSV
-                            </button>
-                            {selectedRows.size > 0 && (
-                                <button className={styles.deleteBtn} onClick={handleDeleteSelected}>
-                                    Delete {selectedRows.size}
-                                </button>
-                            )}
-                        </div>
+                {/* Actions */}
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                    <div className="flex gap-2">
+                        <Button onClick={handleAddRecipient} size="sm">
+                            <Plus className="size-4 mr-2" />
+                            Add Recipient
+                        </Button>
+                        <Button
+                            onClick={() => fileInputRef.current?.click()}
+                            variant="outline"
+                            size="sm"
+                        >
+                            <Upload className="size-4 mr-2" />
+                            Import CSV
+                        </Button>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept=".csv"
+                            onChange={handleFileUpload}
+                            className="hidden"
+                        />
+                        {someSelected && (
+                            <Button
+                                onClick={handleDeleteSelected}
+                                variant="outline"
+                                size="sm"
+                            >
+                                <Trash2 className="size-4 mr-2" />
+                                Delete Selected
+                            </Button>
+                        )}
                     </div>
 
-                    {/* Add Variable Row */}
-                    <div className={styles.fieldRow}>
-                        <input
-                            type="text"
+                    <div className="flex gap-2 items-center">
+                        <Input
                             placeholder="Enter new variable name"
                             value={newFieldName}
                             onChange={(e) => setNewFieldName(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleAddField()}
-                            className={styles.fieldInput}
+                            className="w-56"
                         />
-                        <button className={styles.addFieldBtn} onClick={handleAddField} disabled={!newFieldName.trim()}>
-                            <svg className={styles.btnIcon} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                            </svg>
+                        <Button onClick={handleAddField} size="sm">
+                            <Plus className="size-4 mr-2" />
                             Add Variable
-                        </button>
-                    </div>
-
-                    {/* Table */}
-                    <div className={styles.tableWrapper}>
-                        {localRecipients.length > 0 ? (
-                            <TableContainer className={styles.tableContainer}>
-                                <Table stickyHeader>
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell padding="checkbox" className={styles.checkboxCol}>
-                                                <Checkbox
-                                                    indeterminate={isPartialSelected}
-                                                    checked={isAllSelected}
-                                                    onChange={handleSelectAll}
-                                                    size="small"
-                                                    sx={{ color: '#d1d5db', '&.Mui-checked': { color: '#1f2937' } }}
-                                                />
-                                            </TableCell>
-                                            <TableCell className={styles.sttCol}>STT</TableCell>
-                                            {localFields.map(field => (
-                                                <TableCell key={field.id} className={styles.fieldHeader}>
-                                                    <div className={styles.fieldHeaderContent}>
-                                                        <span>{field.name.toUpperCase()}</span>
-                                                        {field.name.toLowerCase() !== 'email' && (
-                                                            <button
-                                                                className={styles.deleteFieldBtn}
-                                                                onClick={() => {
-                                                                    if (window.confirm(`Delete variable "${field.name}"?`)) {
-                                                                        setLocalFields(prev => prev.filter(f => f.id !== field.id));
-                                                                        setLocalRecipients(prev =>
-                                                                            prev.map(r => {
-                                                                                const { [field.name]: _, ...rest } = r;
-                                                                                return rest as Recipient;
-                                                                            })
-                                                                        );
-                                                                    }
-                                                                }}
-                                                                title={`Delete ${field.name}`}
-                                                            >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="14" height="14">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                                                                </svg>
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </TableCell>
-                                            ))}
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {localRecipients.map((recipient, index) => (
-                                            <TableRow key={recipient.id} className={styles.tableRow}>
-                                                <TableCell padding="checkbox" className={styles.checkboxCol}>
-                                                    <Checkbox
-                                                        checked={selectedRows.has(recipient.id)}
-                                                        onChange={() => handleSelectRow(recipient.id)}
-                                                        size="small"
-                                                        sx={{ color: '#d1d5db', '&.Mui-checked': { color: '#1f2937' } }}
-                                                    />
-                                                </TableCell>
-                                                <TableCell className={styles.sttCol}>{index + 1}</TableCell>
-                                                {localFields.map(field => {
-                                                    const value = recipient[field.name] || '';
-                                                    const isInvalid = invalidCells.has(`${recipient.id}:${field.name}`);
-                                                    return (
-                                                        <TableCell key={field.id}>
-                                                            <input
-                                                                type="text"
-                                                                value={value}
-                                                                onChange={(e) => handleRecipientFieldChange(recipient.id, field.name, e.target.value)}
-                                                                className={`${styles.cellInput} ${isInvalid ? styles.invalidInput : ''}`}
-                                                                placeholder={`Enter ${field.name.toLowerCase()}`}
-                                                            />
-                                                        </TableCell>
-                                                    );
-                                                })}
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                        ) : (
-                            <div className={styles.emptyState}>
-                                <ContactsIcon className={styles.emptyIcon} />
-                                <div className={styles.emptyText}>No recipients yet</div>
-                                <div className={styles.emptyHint}>Click "Add Recipient" to get started</div>
-                            </div>
-                        )}
+                        </Button>
                     </div>
                 </div>
 
+                {/* Table */}
+                <div className="flex-1 overflow-auto min-h-0">
+                    {localRecipients.length > 0 ? (
+                        <div className="rounded-lg border overflow-hidden">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="bg-linear-to-r from-primary/5 via-primary/10 to-primary/5 hover:bg-linear-to-r border-b-2 border-primary/20">
+                                        <TableHead className="w-12 py-4">
+                                            <Checkbox
+                                                checked={isAllSelected}
+                                                onCheckedChange={handleSelectAll}
+                                                className="border-2"
+                                            />
+                                        </TableHead>
+                                        <TableHead className="w-20 font-bold text-xs uppercase tracking-wider py-4">
+                                            STT
+                                        </TableHead>
+                                        {localFields.map(field => (
+                                            <TableHead key={field.id} className="min-w-50 font-bold text-xs uppercase tracking-wider py-4">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span>{field.name.toUpperCase()}</span>
+                                                    {field.name.toLowerCase() !== 'email' && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="size-7 p-0 shrink-0 rounded-full hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-950 transition-colors"
+                                                            onClick={() => {
+                                                                if (window.confirm(`Delete variable "${field.name}"?`)) {
+                                                                    setLocalFields(prev => prev.filter(f => f.id !== field.id));
+                                                                    setLocalRecipients(prev =>
+                                                                        prev.map(r => {
+                                                                            const { [field.name]: _, ...rest } = r;
+                                                                            return rest as Recipient;
+                                                                        })
+                                                                    );
+                                                                }
+                                                            }}
+                                                        >
+                                                            <X className="size-3.5" />
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </TableHead>
+                                        ))}
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {localRecipients.map((recipient, index) => (
+                                        <TableRow
+                                            key={recipient.id}
+                                            className={`
+                                                transition-all duration-150
+                                                hover:bg-primary/5 hover:shadow-sm
+                                                ${index % 2 === 0 ? 'bg-muted/30' : 'bg-background'}
+                                                ${recipient.id && selectedRows.has(recipient.id) ? 'bg-primary/10 hover:bg-primary/15' : ''}
+                                            `}
+                                        >
+                                            <TableCell className="py-3">
+                                                <Checkbox
+                                                    checked={selectedRows.has(recipient.id)}
+                                                    onCheckedChange={() => handleSelectRow(recipient.id)}
+                                                    className="border-2"
+                                                />
+                                            </TableCell>
+                                            <TableCell className="text-center font-medium text-muted-foreground py-3">
+                                                {index + 1}
+                                            </TableCell>
+                                            {localFields.map(field => {
+                                                const value = recipient[field.name] || '';
+                                                const isInvalid = invalidCells.has(`${recipient.id}:${field.name}`);
+                                                return (
+                                                    <TableCell key={field.id} className="py-3">
+                                                        <Input
+                                                            value={value}
+                                                            onChange={(e) => handleRecipientFieldChange(recipient.id, field.name, e.target.value)}
+                                                            placeholder={`Enter ${field.name.toLowerCase()}`}
+                                                            className={
+                                                                isInvalid
+                                                                    ? 'border-red-500 focus-visible:ring-red-500 bg-red-50 dark:bg-red-950/20'
+                                                                    : 'border-0 shadow-none focus-visible:ring-1 bg-transparent hover:bg-background/50 transition-colors'
+                                                            }
+                                                        />
+                                                    </TableCell>
+                                                );
+                                            })}
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center p-12 text-center">
+                            <ContactsIcon className="w-12 h-12 text-border mb-3" />
+                            <div className="text-sm font-semibold text-muted-foreground mb-1">No recipients yet</div>
+                            <div className="text-sm text-muted-foreground">Click "Add Recipient" to get started</div>
+                        </div>
+                    )}
+                </div>
+
                 {/* Footer */}
-                <div className={styles.footer}>
-                    <button className={styles.saveBtn} onClick={handleSave}>
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="16" height="16">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 5.25A2.25 2.25 0 0 1 5.25 3h10.19a2.25 2.25 0 0 1 1.59.659l3.31 3.31a2.25 2.25 0 0 1 .66 1.59V18.75A2.25 2.25 0 0 1 18.75 21H5.25A2.25 2.25 0 0 1 3 18.75V5.25Z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 3v4.5h9V3M7.5 15a2.25 2.25 0 1 1 4.5 0 2.25 2.25 0 0 1-4.5 0Z" />
-                        </svg>
+                <div className="flex justify-end">
+                    <Button onClick={handleSave}>
+                        <Save className="size-4 mr-2" />
                         Save
-                    </button>
+                    </Button>
                 </div>
             </div>
         </div>

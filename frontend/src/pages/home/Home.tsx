@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import styles from './Home.module.scss'
 import { showNotifications } from '@/utils/showNotification'
 import { useAppDispatch } from '@/app/hook'
 import { sendMailApi } from '@/features/email/emailApi'
@@ -61,47 +60,56 @@ function Home() {
     }
 
     return (
-        <div className={styles.page}>
-            <div className={styles.card}>
-                <div className={styles.header}>
-                    <h1>Gửi Gmail trực tiếp</h1>
-                    <p>
+        <div className="min-h-screen flex items-center justify-center bg-muted p-6 text-foreground">
+            <div className="w-full max-w-[820px] bg-card rounded-2xl p-8 shadow-xl flex flex-col gap-5">
+                <div>
+                    <h1 className="text-2xl font-bold mb-2">Gửi Gmail trực tiếp</h1>
+                    <p className="text-muted-foreground leading-relaxed">
                         Sử dụng access token đã nhận sau bước OAuth (scope gmail.send). Token cần được lưu ở
                         localStorage key <strong>access_token</strong>.
                     </p>
                 </div>
 
-                <div className={styles.form}>
-                    <label className={styles.field}>
+                <div className="flex flex-col gap-4">
+                    <label className="flex flex-col gap-2 font-semibold text-foreground">
                         <span>Người nhận</span>
                         <input
                             type="email"
                             placeholder="receiver@example.com"
                             value={receiver}
                             onChange={(e) => setReceiver(e.target.value)}
+                            className="border border-border rounded-lg px-3.5 py-3 text-[15px] font-medium bg-input-background focus:outline-none focus:border-ring focus:ring-2 focus:ring-ring/50"
                         />
                     </label>
 
-                    <label className={styles.field}>
+                    <label className="flex flex-col gap-2 font-semibold text-foreground">
                         <span>Nội dung</span>
                         <textarea
                             placeholder="Nhập nội dung email"
                             rows={8}
                             value={content}
                             onChange={(e) => setContent(e.target.value)}
+                            className="border border-border rounded-lg px-3.5 py-3 text-[15px] font-medium bg-input-background focus:outline-none focus:border-ring focus:ring-2 focus:ring-ring/50"
                         />
                     </label>
 
-                    <div className={styles.actions}>
-                        <button onClick={handleSend} disabled={sending}>
+                    <div className="flex gap-3 justify-end flex-wrap">
+                        <button
+                            onClick={handleSend}
+                            disabled={sending}
+                            className="bg-primary text-primary-foreground px-4.5 py-3 rounded-lg font-bold cursor-pointer shadow-md hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
                             {sending ? 'Đang gửi...' : 'Gửi email'}
                         </button>
-                        <Link to="/email-template" className={styles.linkBtn}>
-                            🎨 Custom Email Builder
+                        <Link
+                            to="/email-template"
+                            className="bg-primary/80 text-primary-foreground px-4.5 py-3 rounded-lg font-bold no-underline inline-flex items-center gap-1.5 shadow-md hover:-translate-y-px"
+                        >
+                            Custom Email Builder
                         </Link>
                     </div>
 
-                    <div className={styles.hint}>
+                    <div className="bg-muted border border-dashed border-border rounded-xl px-4 py-3.5 text-muted-foreground leading-relaxed">
                         <strong>Lưu ý:</strong> Nếu nhận lỗi 401/403, hãy chắc rằng token còn hiệu lực, đúng scope và
                         đã được backend trao đổi từ auth code. Gmail API sẽ gửi từ tài khoản đã ủy quyền.
                     </div>

@@ -8,8 +8,8 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: #2563eb;
-  --primary-foreground: #ffffff;
+  --primary: #030213;
+  --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.95 0.0058 264.53);
   --secondary-foreground: #030213;
   --muted: #ececf0;
@@ -18,13 +18,13 @@
   --accent-foreground: #030213;
   --destructive: #d4183d;
   --destructive-foreground: #ffffff;
-  --border: #e2e4e9;
-  --input: #e2e4e9;
-  --input-background: #f8f9fa;
+  --border: rgba(0, 0, 0, 0.1);
+  --input: transparent;
+  --input-background: #f3f3f5;
   --switch-background: #cbced4;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --ring: #2563eb;
+  --ring: oklch(0.708 0 0);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -172,5 +172,83 @@
     font-size: var(--text-base);
     font-weight: var(--font-weight-normal);
     line-height: 1.5;
+  }
+
+  /* Quill editor global overrides */
+  .ql-container {
+    font-family: inherit;
+  }
+
+  .ql-editor {
+    min-height: 300px;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  .ql-editor.ql-blank::before {
+    font-style: normal;
+    color: #a1a1aa;
+  }
+
+  .ql-toolbar.ql-snow {
+    border: none;
+    border-bottom: 1px solid var(--border);
+    background: #fafafa;
+  }
+
+  .dark .ql-toolbar.ql-snow {
+    background: oklch(0.205 0 0);
+  }
+
+  .ql-container.ql-snow {
+    border: none;
+  }
+
+  .ql-snow .ql-stroke {
+    stroke: #52525b;
+  }
+
+  .dark .ql-snow .ql-stroke {
+    stroke: oklch(0.708 0 0);
+  }
+
+  .ql-snow .ql-fill {
+    fill: #52525b;
+  }
+
+  .dark .ql-snow .ql-fill {
+    fill: oklch(0.708 0 0);
+  }
+
+  .ql-snow .ql-picker-label {
+    color: #52525b;
+  }
+
+  .dark .ql-snow .ql-picker-label {
+    color: oklch(0.708 0 0);
+  }
+
+  .ql-toolbar.ql-snow .ql-picker.ql-expanded .ql-picker-label {
+    border-color: var(--border);
+  }
+
+  .ql-snow .ql-toolbar button:hover .ql-stroke,
+  .ql-snow .ql-toolbar button.ql-active .ql-stroke {
+    stroke: #030213;
+  }
+
+  .dark .ql-snow .ql-toolbar button:hover .ql-stroke,
+  .dark .ql-snow .ql-toolbar button.ql-active .ql-stroke {
+    stroke: oklch(0.985 0 0);
+  }
+
+  .ql-snow .ql-toolbar button:hover .ql-fill,
+  .ql-snow .ql-toolbar button.ql-active .ql-fill {
+    fill: #030213;
+  }
+
+  .dark .ql-snow .ql-toolbar button:hover .ql-fill,
+  .dark .ql-snow .ql-toolbar button.ql-active .ql-fill {
+    fill: oklch(0.985 0 0);
   }
 }

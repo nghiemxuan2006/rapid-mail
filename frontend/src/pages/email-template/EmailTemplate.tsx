@@ -1,18 +1,63 @@
 import { useState, useRef, useEffect } from 'react';
-import styles from './EmailTemplate.module.scss';
 import MailEditor, { type MailEditorRef } from '@/components/email-template/MailEditor';
 import PreviewModal from '@/components/email-template/PreviewModal';
 import RecipientsModal from '@/components/email-template/RecipientsModal';
+import { PersonalizationModal } from '@/components/email-template/PersonalizationModal';
 import { ContactsIcon, ArrowLeftIcon, EyeIcon, CalendarIcon, FloppyDiskIcon, PaperclipIcon, PlusIcon, InfoIcon } from '@/assets/icons';
 import { sendMultipleEmailsApi } from '@/features/email/emailApi';
 import { showNotifications } from '@/utils';
 import { useAppDispatch } from '@/app/hook';
 import type { Campaign, CampaignCreateInput, Recipient } from '@/schema/campaign';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from '@/components/ui/dialog';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 export interface Field {
     id: string;
     name: string;
 }
+
+// Convert user input to variable name format (snake_case)
+export const toVariableName = (input: string): string => {
+    if (!input) return '';
+    let result = input.replace(/[\s\-@#$%^&*()+=\[\]{};:'",.<>?/\\|`~!]/g, '_');
+    result = result.replace(/_+/g, '_');
+    if (result.includes('_')) {
+        result = result.toLowerCase();
+    }
+    result = result.replace(/[^a-zA-Z0-9_]/g, '');
+    return result;
+};
+
+// Remove leading/trailing underscores
+export const cleanVariableName = (input: string): string => {
+    return input.replace(/^_+|_+$/g, '');
+};
+
+// Convert variable name to display name
+export const toDisplayName = (variableName: string): string => {
+    if (variableName.includes('_')) {
+        return variableName
+            .split('_')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join(' ');
+    }
+    const withSpaces = variableName.replace(/([A-Z])/g, ' $1').trim();
+    return withSpaces.charAt(0).toUpperCase() + withSpaces.slice(1);
+};
 
 interface EmailTemplateProps {
     campaign: Campaign | null;
@@ -27,8 +72,8 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
 
     // UI state
     const [isRecipientsModalOpen, setIsRecipientsModalOpen] = useState(false);
-    const [selectedVariable, setSelectedVariable] = useState('');
-    const [showNewFieldInput, setShowNewFieldInput] = useState(false);
+    const [isPersonalizationOpen, setIsPersonalizationOpen] = useState(false);
+    const [isAddVariableOpen, setIsAddVariableOpen] = useState(false);
     const [newFieldName, setNewFieldName] = useState('');
 
     // Campaign data
@@ -93,41 +138,35 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
         );
     };
 
-    const handleDeleteField = (fieldId: string) => {
-        const fieldToDelete = fields.find((f) => f.id === fieldId);
-        if (!fieldToDelete) return;
-
-        if (fieldToDelete.name.toLowerCase() === 'email') {
-            alert('Email field cannot be deleted as it is required.');
-            return;
-        }
-
-        setFields(fields.filter((f) => f.id !== fieldId));
-        setRecipients(
-            recipients.map((r) => {
-                const { [fieldToDelete.name]: _field, ...rest } = r;
-                return { ...rest, id: r.id } as Recipient;
-            })
-        );
-    };
-
     const handleInsertVariable = (fieldName: string) => {
         mailEditorRef.current?.insertVariable(fieldName);
     };
 
-    const handleVariableSelect = (value: string) => {
-        if (value) {
-            handleInsertVariable(value);
-            setSelectedVariable('');
-        }
+
+    const handleVariableNameChange = (value: string) => {
+        setNewFieldName(toVariableName(value));
     };
 
     const handleCreateNewField = () => {
-        if (newFieldName.trim()) {
-            handleAddField(newFieldName.trim());
-            setNewFieldName('');
-            setShowNewFieldInput(false);
+        if (!newFieldName.trim()) {
+            showNotifications('error', 'Vui lòng nhập tên biến');
+            return;
         }
+
+        const variableName = cleanVariableName(newFieldName);
+        if (!variableName) {
+            showNotifications('error', 'Tên biến không hợp lệ');
+            return;
+        }
+
+        if (fields.some(f => f.name === variableName)) {
+            showNotifications('error', `Biến "${variableName}" đã tồn tại`);
+            return;
+        }
+
+        handleAddField(variableName);
+        setNewFieldName('');
+        setIsAddVariableOpen(false);
     };
 
     const onSendEmails = async () => {
@@ -178,135 +217,140 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
     }
 
     return (
-        <div className={styles.container}>
-            {/* Top Action Bar */}
-            <div className={styles.topBar}>
-                <div className={styles.topBarLeft}>
-                    {onBack && (
-                        <button className={styles.backBtn} onClick={onBack}>
-                            <ArrowLeftIcon className={styles.icon} />
-                        </button>
-                    )}
-                    <input
-                        type="text"
-                        placeholder="Campaign name..."
-                        value={campaignName}
-                        onChange={(e) => setCampaignName(e.target.value)}
-                        className={styles.campaignNameInput}
-                    />
-                </div>
+        <div className="h-screen flex flex-col bg-background overflow-hidden">
+            {/* Top Bar */}
+            <div className="bg-card border-b shrink-0 z-10">
+                <div className="max-w-350 mx-auto px-6 py-4">
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                            {onBack && (
+                                <Button variant="ghost" size="icon" onClick={onBack}>
+                                    <ArrowLeftIcon className="size-5" />
+                                </Button>
+                            )}
+                            <Input
+                                value={campaignName}
+                                onChange={(e) => setCampaignName(e.target.value)}
+                                className="text-lg md:text-xl font-semibold border-0 shadow-none focus-visible:ring-1 max-w-md"
+                                placeholder="Tên chiến dịch"
+                            />
+                        </div>
 
-                <div className={styles.topBarActions}>
-                    <button
-                        className={styles.actionBtn}
-                        onClick={() => setIsPreviewModalOpen(true)}
-                    >
-                        <EyeIcon className={styles.icon} />
-                        Preview
-                    </button>
-                    <button className={styles.actionBtn}>
-                        <CalendarIcon className={styles.icon} />
-                        Schedule
-                    </button>
-                    {(onCreate || onUpdate) && (
-                        <button
-                            className={styles.actionBtn}
-                            onClick={handleSaveCampaign}
-                        >
-                            <FloppyDiskIcon className={styles.icon} />
-                            Save
-                        </button>
-                    )}
-                    <button
-                        className={styles.recipientsBtn}
-                        onClick={() => setIsRecipientsModalOpen(true)}
-                    >
-                        <ContactsIcon className={styles.icon} />
-                        Recipients ({filledRecipients.length})
-                    </button>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsPreviewModalOpen(true)}
+                            >
+                                <EyeIcon className="size-4 mr-2" />
+                                Preview
+                            </Button>
+
+                            <Button variant="outline" size="sm">
+                                <CalendarIcon className="size-4 mr-2" />
+                                Schedule
+                            </Button>
+
+                            {(onCreate || onUpdate) && (
+                                <Button variant="outline" size="sm" onClick={handleSaveCampaign}>
+                                    <FloppyDiskIcon className="size-4 mr-2" />
+                                    Save
+                                </Button>
+                            )}
+
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsRecipientsModalOpen(true)}
+                            >
+                                <ContactsIcon className="size-4 mr-2" />
+                                Recipients ({filledRecipients.length})
+                            </Button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             {/* Main Content */}
-            <div className={styles.mainContent}>
-                <div className={styles.card}>
-                    {/* Subject */}
-                    <div className={styles.section}>
-                        <label className={styles.sectionLabel}>Email Subject</label>
-                        <input
-                            type="text"
-                            placeholder="Your email subject..."
-                            value={campaignSubject}
-                            onChange={(e) => setCampaignSubject(e.target.value)}
-                            className={styles.subjectInput}
-                        />
-                    </div>
+            <TooltipProvider>
+                <div className="flex-1 min-h-0 max-w-350 w-full mx-auto px-6 py-8">
+                    <div className="bg-card rounded-lg shadow-sm border p-8 h-full flex flex-col gap-6">
+                        {filledRecipients.length === 0 && (
+                            <div className="shrink-0 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900 rounded-lg p-4">
+                                <p className="text-sm text-amber-800 dark:text-amber-200">
+                                    Bạn chưa có người nhận nào. Hãy click vào nút <strong>Recipients</strong> ở góc trên bên phải để thêm người nhận.
+                                </p>
+                            </div>
+                        )}
 
-                    {/* Email Content */}
-                    <div className={styles.section}>
-                        <div className={styles.sectionLabelRow}>
-                            <label className={styles.sectionLabel}>Email Content</label>
-                            {fields.length > 0 && (
-                                <div className={styles.infoTooltipWrapper}>
-                                    <InfoIcon className={styles.infoIcon} />
-                                    <div className={styles.infoTooltip}>
-                                        <span>You can use the following variables in your email:</span>
-                                        <div className={styles.tooltipVariables}>
-                                            {fields.map(field => (
-                                                <span key={field.id} className={styles.tooltipBadge}>
-                                                    {`{{${field.name}}}`}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+                        <div className="shrink-0 space-y-2">
+                            <Label htmlFor="subject">Tiêu đề Email</Label>
+                            <Input
+                                id="subject"
+                                value={campaignSubject}
+                                onChange={(e) => setCampaignSubject(e.target.value)}
+                                placeholder="Nhập tiêu đề email của bạn..."
+                                className="text-lg"
+                            />
                         </div>
 
-                        {/* Variable insertion bar */}
-                        <div className={styles.variableBar}>
-                            <div className={styles.variableBarLeft}>
-                                <span className={styles.variableLabel}>Insert variable:</span>
-                                <select
-                                    className={styles.variableSelect}
-                                    value={selectedVariable}
-                                    onChange={(e) => handleVariableSelect(e.target.value)}
-                                >
-                                    <option value="">Select variable to insert...</option>
-                                    {fields.map(field => (
-                                        <option key={field.id} value={field.name}>
-                                            {`{{${field.name}}}`}
-                                        </option>
-                                    ))}
-                                </select>
-
-                                <button
-                                    className={styles.createFieldBtn}
-                                    onClick={() => setShowNewFieldInput(true)}
-                                >
-                                    <PlusIcon className={styles.smallIcon} />
-                                    Create new variable
-                                </button>
+                        <div className="flex-1 min-h-0 flex flex-col gap-2">
+                            <div className="flex items-center gap-2">
+                                <Label>Nội dung Email</Label>
+                                {fields.length > 0 && (
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <span className="inline-flex cursor-help">
+                                                <InfoIcon className="size-4 text-muted-foreground" />
+                                            </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="right" className="max-w-xs">
+                                            <div className="space-y-2">
+                                                <p className="font-semibold text-sm">
+                                                    Gợi ý: Bạn có thể sử dụng các biến sau trong email:
+                                                </p>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {fields.map(field => (
+                                                        <code key={field.id} className="px-2 py-0.5 bg-secondary text-secondary-foreground rounded text-xs">
+                                                            {`{{${field.name}}}`}
+                                                        </code>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                )}
                             </div>
 
-                            <button className={styles.attachBtn}>
-                                <PaperclipIcon className={styles.icon} />
-                                Attachment
-                            </button>
-                        </div>
+                            {/* Variable insertion & attachment buttons */}
+                            <div className="flex items-center justify-between gap-3">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setIsPersonalizationOpen(true)}
+                                >
+                                    <PlusIcon className="size-4 mr-2" />
+                                    Add personalization
+                                </Button>
+                                <Button type="button" variant="outline" size="sm">
+                                    <PaperclipIcon className="size-4 mr-2" />
+                                    Đính kèm
+                                </Button>
+                            </div>
 
-                        {/* Editor */}
-                        <div className={styles.editorContainer}>
-                            <MailEditor
-                                ref={mailEditorRef}
-                                content={content}
-                                onContentChange={setContent}
-                            />
+                            {/* Editor */}
+                            <div className="flex-1 min-h-0 border rounded-md overflow-hidden bg-white dark:bg-background">
+                                <MailEditor
+                                    ref={mailEditorRef}
+                                    content={content}
+                                    onContentChange={setContent}
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>
-
-            </div>
+            </TooltipProvider>
 
             {/* Preview Modal */}
             <PreviewModal
@@ -321,57 +365,51 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                 onSend={onSendEmails}
             />
 
-            {/* New Variable Modal */}
-            {showNewFieldInput && (
-                <div className={styles.modalOverlay} onClick={() => { setShowNewFieldInput(false); setNewFieldName(''); }}>
-                    <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-                        <div className={styles.modalHeader}>
-                            <h3 className={styles.modalTitle}>Add new variable</h3>
-                            <button
-                                className={styles.modalCloseBtn}
-                                onClick={() => { setShowNewFieldInput(false); setNewFieldName(''); }}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="20" height="20">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-                        </div>
-                        <div className={styles.modalBody}>
-                            <label className={styles.modalLabel}>Variable name:</label>
-                            <input
-                                type="text"
-                                placeholder="Variable name"
+            {/* Personalization Modal */}
+            <PersonalizationModal
+                open={isPersonalizationOpen}
+                onOpenChange={setIsPersonalizationOpen}
+                variables={fields}
+                onSelectVariable={handleInsertVariable}
+                onCreateVariable={() => setIsAddVariableOpen(true)}
+            />
+
+            {/* New Variable Dialog - stacked above PersonalizationModal */}
+            <Dialog open={isAddVariableOpen} onOpenChange={setIsAddVariableOpen}>
+                <DialogContent className="z-60">
+                    <DialogHeader>
+                        <DialogTitle>Thêm biến mới</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="variableName">Tên biến:</Label>
+                            <Input
+                                id="variableName"
                                 value={newFieldName}
-                                onChange={(e) => setNewFieldName(e.target.value)}
+                                onChange={(e) => handleVariableNameChange(e.target.value)}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') handleCreateNewField();
-                                    if (e.key === 'Escape') {
-                                        setShowNewFieldInput(false);
-                                        setNewFieldName('');
-                                    }
                                 }}
-                                className={styles.modalInput}
+                                placeholder="Ví dụ: firstName, lastName, phone..."
                                 autoFocus
                             />
-                        </div>
-                        <div className={styles.modalFooter}>
-                            <button
-                                className={styles.modalCancelBtn}
-                                onClick={() => { setShowNewFieldInput(false); setNewFieldName(''); }}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                className={styles.modalConfirmBtn}
-                                onClick={handleCreateNewField}
-                                disabled={!newFieldName.trim()}
-                            >
-                                Add
-                            </button>
+                            {newFieldName && (
+                                <p className="text-xs text-muted-foreground">
+                                    Tên hiển thị: <span className="font-medium">{toDisplayName(newFieldName)}</span>
+                                </p>
+                            )}
                         </div>
                     </div>
-                </div>
-            )}
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setIsAddVariableOpen(false)}>
+                            Hủy
+                        </Button>
+                        <Button type="button" onClick={handleCreateNewField} disabled={!newFieldName.trim()}>
+                            Thêm
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Recipients Modal */}
             <RecipientsModal

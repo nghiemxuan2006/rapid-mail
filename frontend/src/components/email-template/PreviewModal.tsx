@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useLockBodyScroll } from '@/hooks/useLockBodyScroll';
 import type { Field } from '@/pages/email-template/EmailTemplate';
-import styles from './PreviewModal.module.scss';
 import type { Recipient } from '@/schema/campaign';
 import {
     Select,
@@ -66,12 +65,12 @@ const PreviewModal = ({
     const resolvedContent = resolveText(content);
 
     return (
-        <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-1000" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+            <div className="bg-card rounded-xl shadow-2xl w-[90vw] max-w-225 h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
                 {/* Header */}
-                <div className={styles.header}>
-                    <h2 className={styles.title}>Email Preview</h2>
-                    <button className={styles.closeBtn} onClick={onClose}>
+                <div className="flex justify-between items-center px-6 pt-5 pb-4">
+                    <h2 className="text-lg font-semibold text-foreground">Email Preview</h2>
+                    <button className="ghost hover:bg-accent rounded-md p-1" onClick={onClose}>
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="20" height="20">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
                         </svg>
@@ -80,8 +79,8 @@ const PreviewModal = ({
 
                 {/* Recipient Selector */}
                 {recipients.length > 0 && (
-                    <div className={styles.recipientSection}>
-                        <label className={styles.recipientLabel}>Preview for:</label>
+                    <div className="px-6 pb-4 flex flex-col gap-1.5">
+                        <label className="text-sm font-medium text-foreground">Preview for:</label>
                         <Select
                             value={String(previewIndex)}
                             onValueChange={(value) => onPreviewIndexChange(Number(value))}
@@ -102,36 +101,36 @@ const PreviewModal = ({
                 )}
 
                 {/* Preview Card */}
-                <div className={styles.previewCard} style={selectOpen ? { overflow: 'hidden' } : undefined}>
+                <div className="mx-6 border border-border rounded-lg flex-1 overflow-y-auto min-h-75" style={selectOpen ? { overflow: 'hidden' } : undefined}>
                     {content ? (
                         <>
-                            <div className={styles.previewSection}>
-                                <span className={styles.previewLabel}>Subject:</span>
+                            <div className="p-4 px-5">
+                                <span className="block text-xs text-muted-foreground mb-1.5">Subject:</span>
                                 <div
-                                    className={styles.previewSubject}
+                                    className="text-base text-foreground"
                                     dangerouslySetInnerHTML={{ __html: resolvedSubject || '<span class="empty">No subject</span>' }}
                                 />
                             </div>
-                            <div className={styles.divider} />
-                            <div className={styles.previewSection}>
-                                <span className={styles.previewLabel}>Content:</span>
+                            <div className="h-px bg-border mx-5" />
+                            <div className="p-4 px-5">
+                                <span className="block text-xs text-muted-foreground mb-1.5">Content:</span>
                                 <div
-                                    className={styles.previewContent}
+                                    className="text-sm text-foreground leading-relaxed"
                                     dangerouslySetInnerHTML={{ __html: resolvedContent }}
                                 />
                             </div>
                         </>
                     ) : (
-                        <div className={styles.emptyState}>
-                            <div className={styles.emptyIcon}>📧</div>
-                            <div className={styles.emptyText}>Start writing your email template</div>
+                        <div className="flex flex-col items-center justify-center p-12 text-center">
+                            <div className="text-5xl mb-3 opacity-40">📧</div>
+                            <div className="text-sm text-muted-foreground font-medium">Start writing your email template</div>
                         </div>
                     )}
                 </div>
 
                 {/* Footer */}
-                <div className={styles.footer}>
-                    <button className={styles.sendBtn} onClick={onSend}>
+                <div className="px-6 pt-4 pb-5 flex justify-end">
+                    <button className="bg-primary text-primary-foreground px-7 py-2.5 rounded-lg font-medium flex items-center gap-2 hover:bg-primary/90" onClick={onSend}>
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="18" height="18">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
                         </svg>
