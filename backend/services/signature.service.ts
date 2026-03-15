@@ -1,4 +1,4 @@
-import User, { IUser } from '../models/user.model';
+import User, { UserDocument } from '../models/user.model';
 import { UNAUTHORIZED_ERROR, BAD_REQUEST_ERROR } from '../utils/error';
 import settings from '../config/env';
 import { sendRequest } from '../utils/send-request';
@@ -39,7 +39,7 @@ const refreshGoogleAccessToken = async (refreshToken: string): Promise<string> =
     return data.access_token;
 };
 
-export const getSignatureList = async (user: IUser, isAlias: boolean = false) => {
+export const getSignatureList = async (user: UserDocument, isAlias: boolean = false) => {
 
     let accessToken = user.googleAccessToken;
     let endpoint = GMAIL_SIGNATURE_ENDPOINT;

@@ -8,7 +8,7 @@ const validate = (
 ): RequestHandler => {
   return async (req, res, next) => {
     try {
-      await schema.parseAsync(req[source]);
+      req[source] = await schema.parseAsync(req[source]);
       next();
     } catch (err) {
       if (err instanceof z.ZodError) {

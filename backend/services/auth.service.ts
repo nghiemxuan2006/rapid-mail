@@ -1,7 +1,7 @@
 import * as jwt from 'jsonwebtoken';
 import settings from '../config/env';
 import { BAD_REQUEST_ERROR, UNAUTHORIZED_ERROR } from '../utils/error';
-import User, { IUser } from '../models/user.model';
+import User, { UserDocument } from '../models/user.model';
 import { sendRequest } from '../utils/send-request';
 
 type GoogleTokenResponse = {
@@ -89,7 +89,7 @@ const fetchGoogleProfile = async (accessToken: string): Promise<GoogleProfile> =
     };
 };
 
-const persistUser = async (profile: GoogleProfile, tokens: GoogleTokenResponse): Promise<IUser> => {
+const persistUser = async (profile: GoogleProfile, tokens: GoogleTokenResponse): Promise<UserDocument> => {
     const update = {
         name: profile.name,
         email: profile.email,
@@ -110,7 +110,7 @@ const persistUser = async (profile: GoogleProfile, tokens: GoogleTokenResponse):
     return user;
 };
 
-const createAppTokens = (user: IUser) => {
+const createAppTokens = (user: UserDocument) => {
     const payload = {
         sub: user._id.toString(),
         email: user.email,

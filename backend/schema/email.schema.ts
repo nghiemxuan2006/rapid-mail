@@ -1,14 +1,12 @@
 import { z } from 'zod';
+import { recipientSchema } from './common.schema';
 
-export const MutipleEmailsPostRequestSchema = z.object({
-    content: z.string().min(1, 'Content is required'),
-    recipients: z.array(z.object({
-        id: z.string(),
-        Email: z.string().email({ message: 'Invalid email address' })
-    }).catchall(z.string())).min(1, 'Recipients must be a non-empty array'),
-    subject: z.string().min(1, 'Subject is required')
+// ===== Request Schemas =====
+export const multipleEmailsBodySchema = z.object({
+  content: z.string().min(1, 'Content is required'),
+  recipients: z.array(recipientSchema).min(1, 'Recipients must be a non-empty array'),
+  subject: z.string().min(1, 'Subject is required'),
 });
 
-export type MutipleEmailsPostRequestType = z.infer<typeof MutipleEmailsPostRequestSchema>;
-
-export type Recipient = MutipleEmailsPostRequestType['recipients'][number];
+// ===== Types =====
+export type MultipleEmailsBody = z.infer<typeof multipleEmailsBodySchema>;

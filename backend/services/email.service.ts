@@ -1,8 +1,9 @@
 import { BAD_REQUEST_ERROR, UNAUTHORIZED_ERROR } from '../utils/error';
 import logger from '../utils/wiston-log';
 import settings from '../config/env';
-import User, { IUser } from '../models/user.model';
-import { Recipient, MutipleEmailsPostRequestType } from '../schema/email.schema';
+import User, { UserDocument } from '../models/user.model';
+import { Recipient } from '../schema/common.schema';
+import { MultipleEmailsBody } from '../schema/email.schema';
 import { getSignatureList } from './signature.service';
 import { sendRequest } from '../utils/send-request';
 
@@ -14,7 +15,7 @@ export type EmailBody = {
 };
 
 export type EmailPayload = EmailBody & {
-    user: IUser;
+    user: UserDocument;
 };
 
 const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
@@ -155,7 +156,7 @@ export const sendEmail = async ({ content, receivers, user, subject, signature }
     };
 };
 
-type CustomEmailPayload = MutipleEmailsPostRequestType & {
+type CustomEmailPayload = MultipleEmailsBody & {
     userId: string;
 }
 
