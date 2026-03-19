@@ -14,7 +14,10 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Upload, Save, Trash2, X } from 'lucide-react';
+import { Plus, Upload, Save, Trash2, X, Info, Download } from 'lucide-react';
+import { showNotifications } from '@/utils/showNotification';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface RecipientsModalProps {
     isOpen: boolean;
@@ -99,10 +102,23 @@ const RecipientsModal = ({
         const file = event.target.files?.[0];
         if (!file) return;
 
+        if (!file.name.endsWith('.csv')) {
+            showNotifications('error', 'File không hợp lệ. Chỉ chấp nhận file .csv');
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            return;
+        }
+
         const reader = new FileReader();
         reader.onload = (e) => {
             const text = e.target?.result as string;
+            if (!text || !text.trim()) {
+                showNotifications('error', 'File CSV rỗng, không có dữ liệu để đọc.');
+                return;
+            }
             parseCSV(text);
+        };
+        reader.onerror = () => {
+            showNotifications('error', 'Không thể đọc file. Vui lòng thử lại.');
         };
         reader.readAsText(file);
 
@@ -113,26 +129,38 @@ const RecipientsModal = ({
 
     const parseCSV = (text: string) => {
         const lines = text.split('\n').filter(line => line.trim());
-        if (lines.length === 0) return;
+        if (lines.length === 0) {
+            showNotifications('error','File CSV rỗng, không có dữ liệu để đọc.');
+            return;
+        }
 
         const headers = lines[0].split(',').map(h => h.trim());
-        const emailIndex = headers.findIndex(h => h.toLowerCase() === 'email');
+        const emailIndex = headers.findIndex(h => h === 'Email');
 
-        if (emailIndex === -1) return;
+        if (emailIndex === -1) {
+            showNotifications('error','File CSV thiếu cột "Email". Header phải có đúng tên "Email" (phân biệt chữ hoa/thường).');
+            return;
+        }
 
-        const newFields: Field[] = [];
+        if (lines.length < 2) {
+            showNotifications('error','File CSV không có dữ liệu (chỉ có header, không có dòng nào).');
+            return;
+        }
+
+        const csvFields: Field[] = [];
         headers.forEach((header, index) => {
             if (index !== emailIndex && header) {
-                const exists = localFields.some(f => f.name.toLowerCase() === header.toLowerCase());
-                if (!exists) {
-                    newFields.push({ id: `csv-${Date.now()}-${index}`, name: header });
-                }
+                csvFields.push({ id: `csv-${Date.now()}-${index}`, name: header });
             }
         });
 
         const newRecipients: Recipient[] = [];
         for (let i = 1; i < lines.length; i++) {
             const values = lines[i].split(',').map(v => v.trim());
+            if (values.length !== headers.length) {
+                showNotifications('error',`Dòng ${i + 1} không khớp cấu trúc header (kỳ vọng ${headers.length} cột, thực tế ${values.length} cột).`);
+                return;
+            }
             const email = values[emailIndex] || '';
             if (email) {
                 const recipient: Recipient = { id: `${Date.now()}-${i}`, Email: email };
@@ -145,8 +173,15 @@ const RecipientsModal = ({
             }
         }
 
-        setLocalFields(prev => [...prev, ...newFields]);
-        setLocalRecipients(prev => [...prev, ...newRecipients]);
+        if (newRecipients.length === 0) {
+            showNotifications('error','Không tìm thấy dòng nào có giá trị Email hợp lệ trong file.');
+            return;
+        }
+
+        // Replace toàn bộ fields và recipients theo file CSV
+        const emailField = localFields.find(f => f.name === 'Email') ?? { id: `csv-email-${Date.now()}`, name: 'Email' };
+        setLocalFields([emailField, ...csvFields]);
+        setLocalRecipients(newRecipients);
     };
 
     const handleSave = () => {
@@ -240,14 +275,79 @@ const RecipientsModal = ({
                             <Plus className="size-4 mr-2" />
                             Add Recipient
                         </Button>
-                        <Button
-                            onClick={() => fileInputRef.current?.click()}
-                            variant="outline"
-                            size="sm"
-                        >
-                            <Upload className="size-4 mr-2" />
-                            Import CSV
-                        </Button>
+                        <div className="relative">
+                            <Button
+                                onClick={() => fileInputRef.current?.click()}
+                                variant="outline"
+                                size="sm"
+                            >
+                                <Upload className="size-4 mr-2" />
+                                Import CSV
+                            </Button>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <button
+                                        type="button"
+                                        aria-label="CSV Import Guide"
+                                        className="absolute -top-2 -right-2 size-5 rounded-full bg-muted text-muted-foreground hover:bg-primary hover:text-primary-foreground flex items-center justify-center transition-all hover:scale-110 shadow-md border-2 border-background z-10"
+                                    >
+                                        <Info className="size-3.5" />
+                                    </button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-105 p-0 border-primary/20" align="start" side="bottom" sideOffset={8}>
+                                    <Alert className="border-0 bg-muted/50 rounded-md">
+                                        <AlertDescription className="space-y-3">
+                                            <div>
+                                                <h4 className="font-semibold text-sm mb-2">📋 Required CSV Structure:</h4>
+                                                <ul className="text-xs space-y-1 text-muted-foreground">
+                                                    <li>• <strong className="text-foreground">First row</strong> must contain column headers</li>
+                                                    <li>• <strong className="text-foreground">Required column:</strong> "Email" (phân biệt hoa thường)</li>
+                                                    <li>• Additional columns become custom variables automatically</li>
+                                                    <li>• Use comma (,) as delimiter</li>
+                                                </ul>
+                                            </div>
+                                            <div className="border-t border-border pt-3">
+                                                <h4 className="font-semibold text-sm mb-2">📝 Example CSV Format:</h4>
+                                                <div className="bg-background rounded-md p-3 border border-border">
+                                                    <code className="text-xs font-mono block text-foreground/80">
+                                                        Email,firstName,lastName,company<br />
+                                                        john@example.com,John,Doe,Acme Inc<br />
+                                                        jane@example.com,Jane,Smith,Tech Corp
+                                                    </code>
+                                                </div>
+                                            </div>
+                                            <div className="border-t border-border pt-3">
+                                                <h4 className="font-semibold text-sm mb-2">💡 Tips:</h4>
+                                                <ul className="text-xs space-y-1 text-muted-foreground">
+                                                    <li>• Export from Excel/Google Sheets as CSV</li>
+                                                    <li>• Ensure no special characters in headers</li>
+                                                    <li>• Upload sẽ thay thế toàn bộ dữ liệu hiện tại</li>
+                                                </ul>
+                                            </div>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="w-full mt-2"
+                                                onClick={() => {
+                                                    const sampleCSV = 'Email,firstName,lastName,company\njohn@example.com,John,Doe,Acme Inc\njane@example.com,Jane,Smith,Tech Corp';
+                                                    const blob = new Blob([sampleCSV], { type: 'text/csv' });
+                                                    const url = URL.createObjectURL(blob);
+                                                    const a = document.createElement('a');
+                                                    a.href = url;
+                                                    a.download = 'sample-recipients.csv';
+                                                    a.click();
+                                                    URL.revokeObjectURL(url);
+                                                    showNotifications('success', 'Sample CSV downloaded!');
+                                                }}
+                                            >
+                                                <Download className="size-4 mr-2" />
+                                                Download Sample CSV
+                                            </Button>
+                                        </AlertDescription>
+                                    </Alert>
+                                </PopoverContent>
+                            </Popover>
+                        </div>
                         <input
                             ref={fileInputRef}
                             type="file"
@@ -282,7 +382,7 @@ const RecipientsModal = ({
                     </div>
                 </div>
 
-                {/* Table */}
+{/* Table */}
                 <div className="flex-1 overflow-auto min-h-0">
                     {localRecipients.length > 0 ? (
                         <div className="rounded-lg border overflow-hidden">
