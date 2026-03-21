@@ -6,7 +6,7 @@ export const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid Obj
 // (e.g., FirstName, Company) that are used for email template personalization like [FirstName]
 export const recipientSchema = z.object({
   id: z.string(),
-  Email: z.string().email('Invalid email address'),
+  Email: z.email('Invalid email address'),
 }).catchall(z.string());
 
 export type Recipient = z.infer<typeof recipientSchema>;

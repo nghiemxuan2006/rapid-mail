@@ -7,7 +7,7 @@ import { ContactsIcon, ArrowLeftIcon, EyeIcon, CalendarIcon, FloppyDiskIcon, Pap
 import { sendMultipleEmailsApi } from '@/features/email/emailApi';
 import { showNotifications } from '@/utils';
 import { useAppDispatch } from '@/app/hook';
-import type { Campaign, CampaignCreateInput, Recipient } from '@/schema/campaign';
+import { type Campaign, type CampaignCreateInput, type Recipient, campaignSaveSchema } from '@/schema/campaign';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -178,17 +178,16 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
         }
     }
 
-    const handleSaveCampaign = () => {
-        if (!campaignName.trim()) {
-            showNotifications('error', 'Please enter a campaign name');
-            return;
-        }
-        if (!campaignSubject.trim()) {
-            showNotifications('error', 'Please enter an email subject');
-            return;
-        }
-        if (filledRecipients.length === 0) {
-            showNotifications('error', 'Please add at least one recipient');
+    const handleSaveCampaign = async () => {
+        try {
+            await campaignSaveSchema.validate(
+                { name: campaignName, subject: campaignSubject, recipients: filledRecipients },
+                { abortEarly: true }
+            );
+        } catch (err) {
+            if (err instanceof Error) {
+                showNotifications('error', err.message);
+            }
             return;
         }
 

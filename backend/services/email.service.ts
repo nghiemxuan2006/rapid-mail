@@ -122,12 +122,6 @@ export const sendEmail = async ({ content, receivers, user, subject, signature }
         throw new BAD_REQUEST_ERROR('receivers must be a non-empty array');
     }
 
-    const invalidReceivers = receivers.filter((receiver) => !isValidReceiver(receiver));
-
-    if (invalidReceivers.length > 0) {
-        throw new BAD_REQUEST_ERROR('receivers must be valid @gmmail.com addresses');
-    }
-
     const uniqueReceivers = Array.from(new Set(receivers.map((receiver) => receiver.trim().toLowerCase())));
 
 
@@ -188,13 +182,10 @@ export const sendMultipleEmails = async ({ content, recipients, userId, subject 
     const signature = res?.signature || '';
     const fields = Object.keys(recipients[0]);
 
-    recipients.forEach(async (recipient) => {
+    for (const recipient of recipients) {
         const emailAddress = recipient['Email'];
-        if (!isValidReceiver(emailAddress)) {
-            throw new BAD_REQUEST_ERROR(`Invalid receiver email: ${emailAddress}`);
-        }
         const personalizedContent = processContent(content, recipient, fields);
-        await sendEmail({ content: personalizedContent, receivers: [emailAddress], user, subject, signature })
-    })
+        await sendEmail({ content: personalizedContent, receivers: [emailAddress], user, subject, signature });
+    }
 
 }

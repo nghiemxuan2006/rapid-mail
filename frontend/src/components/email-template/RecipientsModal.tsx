@@ -2,7 +2,7 @@ import React from 'react';
 import { useLockBodyScroll } from '@/hooks/useLockBodyScroll';
 import type { Field } from '@/pages/email-template/EmailTemplate';
 import { ContactsIcon } from '@/assets/icons';
-import type { Recipient } from '@/schema/campaign';
+import { type Recipient, validateRecipients } from '@/schema/campaign';
 import {
     Table,
     TableBody,
@@ -14,10 +14,11 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Upload, Save, Trash2, X, Info, Download } from 'lucide-react';
+import { Plus, Upload, Save, Trash2, X, Info, Download, AlertCircle } from 'lucide-react';
 import { showNotifications } from '@/utils/showNotification';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface RecipientsModalProps {
     isOpen: boolean;
@@ -45,7 +46,11 @@ const RecipientsModal = ({
     const [localFields, setLocalFields] = React.useState<Field[]>([]);
     const [newFieldName, setNewFieldName] = React.useState('');
     const [selectedRows, setSelectedRows] = React.useState<Set<string>>(new Set());
-    const [invalidCells, setInvalidCells] = React.useState<Set<string>>(new Set());
+    const [validationErrors, setValidationErrors] = React.useState<{
+        [recipientId: string]: {
+            [fieldName: string]: string | undefined;
+        };
+    }>({});
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     React.useEffect(() => {
@@ -53,7 +58,7 @@ const RecipientsModal = ({
             setLocalFields([...fields]);
             setLocalRecipients(recipients.length > 0 ? [...recipients] : [createEmptyRecipient(fields)]);
             setSelectedRows(new Set());
-            setInvalidCells(new Set());
+            setValidationErrors({});
             setNewFieldName('');
         }
     }, [isOpen]);
@@ -74,15 +79,19 @@ const RecipientsModal = ({
         setLocalRecipients(prev =>
             prev.map(r => r.id === recipientId ? { ...r, [fieldName]: value } : r)
         );
-        if (invalidCells.size > 0) {
-            const key = `${recipientId}:${fieldName}`;
-            if (invalidCells.has(key) && value.trim()) {
-                setInvalidCells(prev => {
-                    const next = new Set(prev);
-                    next.delete(key);
-                    return next;
-                });
-            }
+        if (validationErrors[recipientId]?.[fieldName] && value.trim()) {
+            setValidationErrors(prev => {
+                const next = { ...prev };
+                if (next[recipientId]) {
+                    const { [fieldName]: _, ...rest } = next[recipientId];
+                    if (Object.keys(rest).length === 0) {
+                        delete next[recipientId];
+                    } else {
+                        next[recipientId] = rest;
+                    }
+                }
+                return next;
+            });
         }
     };
 
@@ -184,29 +193,21 @@ const RecipientsModal = ({
         setLocalRecipients(newRecipients);
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         const filled = localRecipients.filter(recipient =>
             localFields.some(field => (recipient[field.name] || '').trim() !== '')
         );
 
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        const errors = new Set<string>();
-        filled.forEach(recipient => {
-            localFields.forEach(field => {
-                const value = (recipient[field.name] || '').trim();
-                if (!value) {
-                    errors.add(`${recipient.id}:${field.name}`);
-                } else if (field.name.toLowerCase() === 'email' && !emailRegex.test(value)) {
-                    errors.add(`${recipient.id}:${field.name}`);
-                }
-            });
-        });
+        const fieldNames = localFields.map(f => f.name);
+        const { errors, hasErrors } = await validateRecipients(filled, fieldNames);
 
-        if (errors.size > 0) {
-            setInvalidCells(errors);
+        if (hasErrors) {
+            setValidationErrors(errors);
+            showNotifications('error', 'Please fix validation errors before saving');
             return;
         }
 
+        setValidationErrors({});
         onSave(filled, localFields);
         onClose();
     };
@@ -383,26 +384,25 @@ const RecipientsModal = ({
                 </div>
 
 {/* Table */}
-                <div className="flex-1 overflow-auto min-h-0">
+                <div className="flex-1 overflow-auto -mx-6 px-6">
                     {localRecipients.length > 0 ? (
                         <div className="rounded-lg border overflow-hidden">
                             <Table>
                                 <TableHeader>
                                     <TableRow className="bg-linear-to-r from-primary/5 via-primary/10 to-primary/5 hover:bg-linear-to-r border-b-2 border-primary/20">
-                                        <TableHead className="w-12 py-4">
-                                            <Checkbox
-                                                checked={isAllSelected}
-                                                onCheckedChange={handleSelectAll}
-                                                className="border-2"
-                                            />
-                                        </TableHead>
-                                        <TableHead className="w-20 font-bold text-xs uppercase tracking-wider py-4">
-                                            STT
+                                        <TableHead className="w-12 py-4 border-r align-middle">
+                                            <div className="flex items-center justify-center">
+                                                <Checkbox
+                                                    checked={isAllSelected}
+                                                    onCheckedChange={handleSelectAll}
+                                                    className="border-2"
+                                                />
+                                            </div>
                                         </TableHead>
                                         {localFields.map(field => (
-                                            <TableHead key={field.id} className="min-w-50 font-bold text-xs uppercase tracking-wider py-4">
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <span>{field.name.toUpperCase()}</span>
+                                            <TableHead key={field.id} className="min-w-50 font-bold text-xs uppercase tracking-wider py-4 border-r align-middle">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <span className="flex-1 text-center">{field.name.toUpperCase()}</span>
                                                     {field.name.toLowerCase() !== 'email' && (
                                                         <Button
                                                             variant="ghost"
@@ -439,31 +439,47 @@ const RecipientsModal = ({
                                                 ${recipient.id && selectedRows.has(recipient.id) ? 'bg-primary/10 hover:bg-primary/15' : ''}
                                             `}
                                         >
-                                            <TableCell className="py-3">
-                                                <Checkbox
-                                                    checked={selectedRows.has(recipient.id)}
-                                                    onCheckedChange={() => handleSelectRow(recipient.id)}
-                                                    className="border-2"
-                                                />
-                                            </TableCell>
-                                            <TableCell className="text-center font-medium text-muted-foreground py-3">
-                                                {index + 1}
+                                            <TableCell className="py-3 border-r border-dashed align-middle">
+                                                <div className="flex items-center justify-center">
+                                                    <Checkbox
+                                                        checked={selectedRows.has(recipient.id)}
+                                                        onCheckedChange={() => handleSelectRow(recipient.id)}
+                                                        className="border-2"
+                                                    />
+                                                </div>
                                             </TableCell>
                                             {localFields.map(field => {
                                                 const value = recipient[field.name] || '';
-                                                const isInvalid = invalidCells.has(`${recipient.id}:${field.name}`);
+                                                const errorMsg = validationErrors[recipient.id]?.[field.name];
                                                 return (
-                                                    <TableCell key={field.id} className="py-3">
-                                                        <Input
-                                                            value={value}
-                                                            onChange={(e) => handleRecipientFieldChange(recipient.id, field.name, e.target.value)}
-                                                            placeholder={`Enter ${field.name.toLowerCase()}`}
-                                                            className={
-                                                                isInvalid
-                                                                    ? 'border-red-500 focus-visible:ring-red-500 bg-red-50 dark:bg-red-950/20'
-                                                                    : 'border-0 shadow-none focus-visible:ring-1 bg-transparent hover:bg-background/50 transition-colors'
-                                                            }
-                                                        />
+                                                    <TableCell key={field.id} className="py-3 border-r border-dashed align-middle">
+                                                        <div className="relative">
+                                                            <Input
+                                                                value={value}
+                                                                onChange={(e) => handleRecipientFieldChange(recipient.id, field.name, e.target.value)}
+                                                                placeholder={`Enter ${field.name.toLowerCase()}`}
+                                                                className={
+                                                                    errorMsg
+                                                                        ? 'border-2 border-destructive focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-destructive bg-destructive/10 pr-10'
+                                                                        : 'border-2 border-transparent shadow-none focus-visible:ring-1 bg-transparent hover:bg-background/50 transition-colors pr-10'
+                                                                }
+                                                            />
+                                                            {errorMsg && (
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                                            <AlertCircle className="size-5 text-destructive cursor-help" />
+                                                                        </div>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent side="right" sideOffset={8} className="max-w-70">
+                                                                        <div className="space-y-1">
+                                                                            <p className="font-semibold">Validation Error</p>
+                                                                            <p className="opacity-90">{errorMsg}</p>
+                                                                        </div>
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            )}
+                                                        </div>
                                                     </TableCell>
                                                 );
                                             })}
