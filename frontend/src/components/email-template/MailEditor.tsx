@@ -106,7 +106,7 @@ const MailEditor = forwardRef<MailEditorRef, MailEditorProps>(({ content, onCont
     const characterCount = quillRef.current?.getText().length || 0;
 
     return (
-        <div className="flex flex-col h-full bg-card">
+        <div className="flex flex-col bg-card">
             {/* <div className={styles.toolLabel}>
                 💡 Click Fields tab to insert variables
             </div> */}
@@ -114,7 +114,7 @@ const MailEditor = forwardRef<MailEditorRef, MailEditorProps>(({ content, onCont
             <div
                 id="mail-editor-input"
                 ref={editorRef}
-                className="flex-1 overflow-hidden min-h-0"
+                className="overflow-hidden"
             />
 
             {errors.length > 0 && (

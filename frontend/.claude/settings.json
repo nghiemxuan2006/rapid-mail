@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(npx tsc --noEmit)",
-      "mcp__figma__get_metadata"
+      "mcp__figma__get_metadata",
+      "Bash(find d:my_studyrapid-mailfrontend/src -type f -name *.css)"
     ]
   }
 }

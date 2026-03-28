@@ -7,11 +7,18 @@ import { MultipleEmailsBody } from '../schema/email.schema';
 import { getSignatureList } from './signature.service';
 import { sendRequest } from '../utils/send-request';
 
+export type Attachment = {
+    filename: string;
+    mimeType: string;
+    content: Buffer;
+};
+
 export type EmailBody = {
     content: string;
     receivers: string[];
     subject: string;
     signature?: string;
+    attachments?: Attachment[];
 };
 
 export type EmailPayload = EmailBody & {
@@ -43,15 +50,51 @@ const encodeHeaderValue = (value: string): string => {
     return value;
 };
 
-const buildRawMessage = (from: string, to: string[], subject: string, content: string) => {
+const buildRawMessage = (from: string, to: string[], subject: string, content: string, attachments?: Attachment[]) => {
+    if (!attachments || attachments.length === 0) {
+        const headers = [
+            `From: ${from}`,
+            `To: ${to.join(', ')}`,
+            `Subject: ${encodeHeaderValue(subject)}`,
+            'Content-Type: text/html; charset="UTF-8"'
+        ];
+
+        const message = `${headers.join('\r\n')}\r\n\r\n${content}`;
+        return base64UrlEncode(message);
+    }
+
+    const boundary = `boundary_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
     const headers = [
         `From: ${from}`,
         `To: ${to.join(', ')}`,
         `Subject: ${encodeHeaderValue(subject)}`,
-        'Content-Type: text/html; charset="UTF-8"'
+        'MIME-Version: 1.0',
+        `Content-Type: multipart/mixed; boundary="${boundary}"`
     ];
 
-    const message = `${headers.join('\r\n')}\r\n\r\n${content}`;
+    const parts: string[] = [];
+
+    // HTML body part
+    parts.push(
+        `--${boundary}\r\n` +
+        'Content-Type: text/html; charset="UTF-8"\r\n\r\n' +
+        content
+    );
+
+    // Attachment parts
+    for (const attachment of attachments) {
+        const base64Content = attachment.content.toString('base64');
+        parts.push(
+            `--${boundary}\r\n` +
+            `Content-Type: ${attachment.mimeType}; name="${encodeHeaderValue(attachment.filename)}"\r\n` +
+            'Content-Transfer-Encoding: base64\r\n' +
+            `Content-Disposition: attachment; filename="${encodeHeaderValue(attachment.filename)}"\r\n\r\n` +
+            base64Content
+        );
+    }
+
+    const message = `${headers.join('\r\n')}\r\n\r\n${parts.join('\r\n')}\r\n--${boundary}--`;
     return base64UrlEncode(message);
 };
 
@@ -113,7 +156,7 @@ const sendWithGmailApi = async (accessToken: string, rawMessage: string) => {
     return { needRefresh: false, messageId: data.id } as const;
 };
 
-export const sendEmail = async ({ content, receivers, user, subject, signature }: EmailPayload) => {
+export const sendEmail = async ({ content, receivers, user, subject, signature, attachments }: EmailPayload) => {
     if (!content || typeof content !== 'string' || !content.trim()) {
         throw new BAD_REQUEST_ERROR('content is required');
     }
@@ -125,7 +168,7 @@ export const sendEmail = async ({ content, receivers, user, subject, signature }
     const uniqueReceivers = Array.from(new Set(receivers.map((receiver) => receiver.trim().toLowerCase())));
 
 
-    const rawMessage = buildRawMessage(user.email, uniqueReceivers, subject, content.trim() + '\n\n' + (signature || ''));
+    const rawMessage = buildRawMessage(user.email, uniqueReceivers, subject, content.trim() + '\n\n' + (signature || ''), attachments);
 
     let accessToken = user.googleAccessToken;
     let sendResult = await sendWithGmailApi(accessToken, rawMessage);
@@ -152,6 +195,7 @@ export const sendEmail = async ({ content, receivers, user, subject, signature }
 
 type CustomEmailPayload = MultipleEmailsBody & {
     userId: string;
+    attachments?: Attachment[];
 }
 
 const processContent = (content: string, recipient: Recipient, fields: string[]): string => {
@@ -172,7 +216,7 @@ const processContent = (content: string, recipient: Recipient, fields: string[])
 
     return preview;
 }
-export const sendMultipleEmails = async ({ content, recipients, userId, subject }: CustomEmailPayload) => {
+export const sendMultipleEmails = async ({ content, recipients, userId, subject, attachments }: CustomEmailPayload) => {
     const user = await User.findById(userId);
     if (!user) {
         throw new UNAUTHORIZED_ERROR('User not found');
@@ -185,7 +229,7 @@ export const sendMultipleEmails = async ({ content, recipients, userId, subject 
     for (const recipient of recipients) {
         const emailAddress = recipient['Email'];
         const personalizedContent = processContent(content, recipient, fields);
-        await sendEmail({ content: personalizedContent, receivers: [emailAddress], user, subject, signature });
+        await sendEmail({ content: personalizedContent, receivers: [emailAddress], user, subject, signature, attachments });
     }
 
 }

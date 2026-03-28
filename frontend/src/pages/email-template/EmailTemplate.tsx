@@ -24,6 +24,15 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { FileText, Image as ImageIcon, File as FileIcon, X } from 'lucide-react';
+
+export interface FileAttachment {
+    id: string;
+    name: string;
+    size: number;
+    type: string;
+    file: File;
+}
 
 export interface Field {
     id: string;
@@ -84,6 +93,8 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
         { id: 'default-email', name: 'Email' },
     ]);
     const [recipients, setRecipients] = useState<Recipient[]>([]);
+    const [attachments, setAttachments] = useState<FileAttachment[]>([]);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Filter out empty rows (used for sending/saving)
     const filledRecipients = recipients.filter(recipient =>
@@ -147,6 +158,91 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
         setNewFieldName(toVariableName(value));
     };
 
+    // File attachment helpers
+    const ALLOWED_TYPES = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+        'text/plain',
+        'application/zip', 'application/x-zip-compressed',
+    ];
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    const MAX_TOTAL_SIZE = 25 * 1024 * 1024; // 25MB
+
+    const formatFileSize = (bytes: number): string => {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+    };
+
+    const getFileIcon = (type: string) => {
+        if (type.startsWith('image/')) return ImageIcon;
+        if (type.includes('pdf')) return FileText;
+        return FileIcon;
+    };
+
+    const handleFileSelect = (files: FileList | null) => {
+        if (!files || files.length === 0) return;
+
+        const newAttachments: FileAttachment[] = [];
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+
+            if (!ALLOWED_TYPES.includes(file.type)) {
+                showNotifications('error', `File "${file.name}" không được hỗ trợ. Chỉ chấp nhận PDF, Office, Images, Text, ZIP.`);
+                continue;
+            }
+
+            if (file.size > MAX_FILE_SIZE) {
+                showNotifications('error', `File "${file.name}" quá lớn (max 10MB).`);
+                continue;
+            }
+
+            newAttachments.push({
+                id: `${Date.now()}-${i}`,
+                name: file.name,
+                size: file.size,
+                type: file.type,
+                file: file,
+            });
+        }
+
+        const currentTotalSize = attachments.reduce((sum, att) => sum + att.size, 0);
+        const newTotalSize = newAttachments.reduce((sum, att) => sum + att.size, 0);
+
+        if (currentTotalSize + newTotalSize > MAX_TOTAL_SIZE) {
+            showNotifications('error', 'Tổng dung lượng file đính kèm không được vượt quá 25MB.');
+            return;
+        }
+
+        if (newAttachments.length > 0) {
+            setAttachments(prev => [...prev, ...newAttachments]);
+            showNotifications('success', `Đã thêm ${newAttachments.length} file đính kèm.`);
+        }
+
+        // Reset file input
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    const handleRemoveAttachment = (id: string) => {
+        setAttachments(prev => prev.filter(att => att.id !== id));
+        showNotifications('success', 'Đã xóa file đính kèm.');
+    };
+
+    const getTotalAttachmentSize = () => {
+        return attachments.reduce((sum, att) => sum + att.size, 0);
+    };
+
     const handleCreateNewField = () => {
         if (!newFieldName.trim()) {
             showNotifications('error', 'Vui lòng nhập tên biến');
@@ -171,7 +267,12 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
 
     const onSendEmails = async () => {
         try {
-            await dispatch(sendMultipleEmailsApi({ recipients: filledRecipients, content, subject: campaignSubject })).unwrap();
+            await dispatch(sendMultipleEmailsApi({
+                recipients: filledRecipients,
+                content,
+                subject: campaignSubject,
+                attachments: attachments.map(a => a.file)
+            })).unwrap();
             showNotifications('success', 'Sent emails successfully to all recipients');
         } catch (err) {
             showNotifications('error', err instanceof Error ? err.message : 'Failed to send emails');
@@ -216,9 +317,9 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
     }
 
     return (
-        <div className="h-screen flex flex-col bg-background overflow-hidden">
+        <div className="min-h-screen bg-background">
             {/* Top Bar */}
-            <div className="bg-card border-b shrink-0 z-10">
+            <div className="bg-card border-b sticky top-0 z-10">
                 <div className="max-w-350 mx-auto px-6 py-4">
                     <div className="flex items-center justify-between gap-4 flex-wrap">
                         <div className="flex items-center gap-4 flex-1 min-w-0">
@@ -272,17 +373,17 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
 
             {/* Main Content */}
             <TooltipProvider>
-                <div className="flex-1 min-h-0 max-w-350 w-full mx-auto px-6 py-8">
-                    <div className="bg-card rounded-lg shadow-sm border p-8 h-full flex flex-col gap-6">
+                <div className="max-w-350 w-full mx-auto px-6 py-8">
+                    <div className="bg-card rounded-lg shadow-sm border p-8 space-y-6">
                         {filledRecipients.length === 0 && (
-                            <div className="shrink-0 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900 rounded-lg p-4">
+                            <div className="bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900 rounded-lg p-4">
                                 <p className="text-sm text-amber-800 dark:text-amber-200">
                                     Bạn chưa có người nhận nào. Hãy click vào nút <strong>Recipients</strong> ở góc trên bên phải để thêm người nhận.
                                 </p>
                             </div>
                         )}
 
-                        <div className="shrink-0 space-y-2">
+                        <div className="space-y-2">
                             <Label htmlFor="subject">Tiêu đề Email</Label>
                             <Input
                                 id="subject"
@@ -293,7 +394,7 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                             />
                         </div>
 
-                        <div className="flex-1 min-h-0 flex flex-col gap-2">
+                        <div className="space-y-2">
                             <div className="flex items-center gap-2">
                                 <Label>Nội dung Email</Label>
                                 {fields.length > 0 && (
@@ -332,20 +433,88 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                                     <PlusIcon className="size-4 mr-2" />
                                     Add personalization
                                 </Button>
-                                <Button type="button" variant="outline" size="sm">
-                                    <PaperclipIcon className="size-4 mr-2" />
-                                    Đính kèm
-                                </Button>
+                                <div className="relative">
+                                    <input
+                                        type="file"
+                                        multiple
+                                        ref={fileInputRef}
+                                        className="hidden"
+                                        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.webp,.txt,.zip"
+                                        onChange={(e) => handleFileSelect(e.target.files)}
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="relative"
+                                    >
+                                        <PaperclipIcon className="size-4 mr-2" />
+                                        Đính kèm
+                                        {attachments.length > 0 && (
+                                            <span className="absolute -top-1.5 -right-1.5 size-5 flex items-center justify-center text-xs font-semibold bg-primary text-primary-foreground rounded-full">
+                                                {attachments.length}
+                                            </span>
+                                        )}
+                                    </Button>
+                                </div>
                             </div>
 
                             {/* Editor */}
-                            <div className="flex-1 min-h-0 border rounded-md overflow-hidden bg-white dark:bg-background">
+                            <div className="border rounded-md overflow-hidden bg-white dark:bg-background">
                                 <MailEditor
                                     ref={mailEditorRef}
                                     content={content}
                                     onContentChange={setContent}
                                 />
                             </div>
+
+                            {/* Attachments List */}
+                            {attachments.length > 0 && (
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between px-1">
+                                        <Label className="text-sm font-medium flex items-center gap-2">
+                                            <PaperclipIcon className="size-4" />
+                                            File đính kèm ({attachments.length})
+                                        </Label>
+                                        <span className="text-xs text-muted-foreground">
+                                            {formatFileSize(getTotalAttachmentSize())} / 25 MB
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-2">
+                                        {attachments.map((attachment) => {
+                                            const AttachmentIcon = getFileIcon(attachment.type);
+                                            return (
+                                                <div
+                                                    key={attachment.id}
+                                                    className="group flex items-center gap-3 p-3 bg-accent/50 hover:bg-accent rounded-lg border transition-colors"
+                                                >
+                                                    <div className="p-2 bg-background rounded border">
+                                                        <AttachmentIcon className="size-4 text-primary" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium truncate">
+                                                            {attachment.name}
+                                                        </p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {formatFileSize(attachment.size)}
+                                                        </p>
+                                                    </div>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="size-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        onClick={() => handleRemoveAttachment(attachment.id)}
+                                                    >
+                                                        <X className="size-4 text-destructive" />
+                                                    </Button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

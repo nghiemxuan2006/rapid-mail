@@ -12,6 +12,7 @@ import {
 import { useState, useEffect } from 'react';
 import { useAppDispatch } from '@/app/hook';
 import { logout } from '@/features/auth/authSlice';
+import { RapidmailLogo } from '@/components/RapidmailLogo';
 
 const Header = () => {
   const navigate = useNavigate();
@@ -62,7 +63,7 @@ const Header = () => {
           {/* Left side - Logo and Navigation */}
           <div className="flex items-center gap-8">
             <Link to="/" className="text-2xl font-bold text-primary">
-              Rapidmail.com
+              <RapidmailLogo />
             </Link>
             <nav className="flex gap-6">
               <Link to="/campaigns" className={navLinkClass('/campaigns')}>
