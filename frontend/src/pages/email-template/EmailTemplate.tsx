@@ -7,7 +7,7 @@ import { ContactsIcon, ArrowLeftIcon, EyeIcon, CalendarIcon, FloppyDiskIcon, Pap
 import { sendMultipleEmailsApi } from '@/features/email/emailApi';
 import { showNotifications } from '@/utils';
 import { useAppDispatch } from '@/app/hook';
-import { type Campaign, type CampaignCreateInput, type Recipient, campaignSaveSchema } from '@/schema/campaign';
+import { type Campaign, type CampaignCreateInput, type CampaignUpdateInput, type Recipient, campaignSaveSchema } from '@/schema/campaign';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,7 +31,8 @@ export interface FileAttachment {
     name: string;
     size: number;
     type: string;
-    file: File;
+    file?: File;
+    storedName?: string;
 }
 
 export interface Field {
@@ -72,7 +73,7 @@ interface EmailTemplateProps {
     campaign: Campaign | null;
     onBack?: () => void;
     onCreate?: (campaign: CampaignCreateInput) => void;
-    onUpdate?: (campaign: Campaign) => void;
+    onUpdate?: (campaign: CampaignUpdateInput) => void;
 }
 
 const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplateProps) => {
@@ -94,6 +95,7 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
     ]);
     const [recipients, setRecipients] = useState<Recipient[]>([]);
     const [attachments, setAttachments] = useState<FileAttachment[]>([]);
+    const [removedAttachments, setRemovedAttachments] = useState<string[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Filter out empty rows (used for sending/saving)
@@ -126,12 +128,26 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                 setRecipients([]);
                 setFields([{ id: 'default-email', name: 'Email' }]);
             }
+            if (campaign.attachments && campaign.attachments.length > 0) {
+                setAttachments(campaign.attachments.map((att, index) => ({
+                    id: `existing-${index}`,
+                    name: att.filename,
+                    size: att.size,
+                    type: att.mimeType,
+                    storedName: att.storedName,
+                })));
+            } else {
+                setAttachments([]);
+            }
+            setRemovedAttachments([]);
         } else {
             setCampaignName('');
             setCampaignSubject('');
             setContent('');
             setRecipients([]);
             setFields([{ id: 'default-email', name: 'Email' }]);
+            setAttachments([]);
+            setRemovedAttachments([]);
         }
     }, [campaign]);
 
@@ -235,6 +251,10 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
     };
 
     const handleRemoveAttachment = (id: string) => {
+        const attachment = attachments.find(att => att.id === id);
+        if (attachment?.storedName) {
+            setRemovedAttachments(prev => [...prev, attachment.storedName!]);
+        }
         setAttachments(prev => prev.filter(att => att.id !== id));
         showNotifications('success', 'Đã xóa file đính kèm.');
     };
@@ -266,13 +286,12 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
     };
 
     const onSendEmails = async () => {
+        if (!campaign?._id) {
+            showNotifications('error', 'Please save the campaign before sending emails');
+            return;
+        }
         try {
-            await dispatch(sendMultipleEmailsApi({
-                recipients: filledRecipients,
-                content,
-                subject: campaignSubject,
-                attachments: attachments.map(a => a.file)
-            })).unwrap();
+            await dispatch(sendMultipleEmailsApi({ campaignId: campaign._id })).unwrap();
             showNotifications('success', 'Sent emails successfully to all recipients');
         } catch (err) {
             showNotifications('error', err instanceof Error ? err.message : 'Failed to send emails');
@@ -292,8 +311,10 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
             return;
         }
 
+        const newFiles = attachments.filter(att => att.file).map(att => att.file!);
+
         if (campaign?.createdAt) {
-            const updatedCampaign: Campaign = {
+            const updatedCampaign: CampaignUpdateInput = {
                 _id: campaign._id,
                 name: campaignName,
                 subject: campaignSubject,
@@ -301,6 +322,8 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                 recipients: filledRecipients,
                 createdAt: campaign.createdAt,
                 updatedAt: new Date().toISOString().split('T')[0],
+                files: newFiles,
+                removeAttachments: removedAttachments,
             };
             onUpdate?.(updatedCampaign);
         } else {
@@ -309,6 +332,7 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                 subject: campaignSubject,
                 content: content,
                 recipients: filledRecipients,
+                files: newFiles,
             };
             onCreate?.(newCampaign);
         }
@@ -331,7 +355,7 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                             <Input
                                 value={campaignName}
                                 onChange={(e) => setCampaignName(e.target.value)}
-                                className="text-lg md:text-xl font-semibold border-0 shadow-none focus-visible:ring-1 max-w-md"
+                                className="text-lg md:text-xl font-semibold focus-visible:ring-2 max-w-md"
                                 placeholder="Tên chiến dịch"
                             />
                         </div>

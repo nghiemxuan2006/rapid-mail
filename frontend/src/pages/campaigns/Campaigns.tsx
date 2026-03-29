@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import EmailTemplate from '@/pages/email-template/EmailTemplate';
-import type { Campaign, CampaignCreateInput } from '@/schema/campaign';
+import type { Campaign, CampaignCreateInput, CampaignUpdateInput } from '@/schema/campaign';
 import { useAppDispatch } from '@/app/hook';
 import { createCampaignApi, getCampaignsApi, updateCampaignApi, deleteCampaignByIdApi } from '@/features/campaign/campaignApi';
 import { Button } from '@/components/ui/button';
@@ -110,11 +110,11 @@ const Campaigns = () => {
     }
   };
 
-  const handleUpdateCampaign = async (updatedCampaign: Campaign) => {
+  const handleUpdateCampaign = async (updatedCampaign: CampaignUpdateInput) => {
     try {
-      await dispatch(updateCampaignApi(updatedCampaign)).unwrap();
+      const res = await dispatch(updateCampaignApi(updatedCampaign)).unwrap();
       setCampaigns(campaigns.map(c =>
-        c._id === updatedCampaign._id ? updatedCampaign : c
+        c._id === updatedCampaign._id ? res : c
       ));
       navigate('/campaigns');
     } catch (error) {
@@ -212,8 +212,12 @@ const Campaigns = () => {
     }
   };
 
-  // If on edit/create route, render EmailTemplate immediately
+  // If on edit/create route, render EmailTemplate
   if (isEditRoute) {
+    // Wait for campaign data before rendering (except for new campaigns)
+    if (id !== 'new' && !selectedCampaign) {
+      return null;
+    }
     return (
       <EmailTemplate
         campaign={selectedCampaign}

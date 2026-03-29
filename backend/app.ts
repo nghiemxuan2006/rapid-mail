@@ -14,6 +14,7 @@ import connectMongoDB from './config/mongodb';
 
 import routers from './routers'
 import http from 'http'
+import { ensureStorageDir } from './services/file-storage.service'
 const writeLog = {
     write: (message: string) => {
         logger.info(message)
@@ -92,6 +93,9 @@ app.use(errorHandler);
 
 // Create HTTP server to attach Socket.IO
 const server = http.createServer(app);
+
+// Ensure file storage directory exists
+ensureStorageDir();
 
 // Connect to MongoDB
 connectMongoDB();

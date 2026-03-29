@@ -1,6 +1,16 @@
 import { z } from 'zod';
 import { objectIdSchema, recipientSchema } from './common.schema';
 
+// ===== Attachment Schema =====
+export const attachmentMetaSchema = z.object({
+  filename: z.string(),
+  storedName: z.string(),
+  mimeType: z.string(),
+  size: z.number(),
+});
+
+export type AttachmentMeta = z.infer<typeof attachmentMetaSchema>;
+
 // ===== Base Entity Schema =====
 export const campaignSchema = z.object({
   user_id: objectIdSchema,
@@ -8,6 +18,7 @@ export const campaignSchema = z.object({
   subject: z.string().min(1, 'Subject is required'),
   content: z.string().min(1, 'Content is required'),
   recipients: z.array(recipientSchema).min(1, 'Recipients must be a non-empty array'),
+  attachments: z.array(attachmentMetaSchema).optional(),
 });
 
 // ===== Request Schemas =====
@@ -23,6 +34,7 @@ export const updateCampaignBodySchema = z.object({
   subject: z.string().min(1).optional(),
   content: z.string().min(1).optional(),
   recipients: z.array(recipientSchema).min(1).optional(),
+  removeAttachments: z.union([z.string(), z.array(z.string())]).optional(),
 });
 
 export const campaignParamsSchema = z.object({

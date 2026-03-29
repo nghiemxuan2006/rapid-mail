@@ -2,10 +2,11 @@ import { BAD_REQUEST_ERROR, UNAUTHORIZED_ERROR } from '../utils/error';
 import logger from '../utils/wiston-log';
 import settings from '../config/env';
 import User, { UserDocument } from '../models/user.model';
+import Campaign from '../models/campaign.model';
 import { Recipient } from '../schema/common.schema';
-import { MultipleEmailsBody } from '../schema/email.schema';
 import { getSignatureList } from './signature.service';
 import { sendRequest } from '../utils/send-request';
+import { readFile } from './file-storage.service';
 
 export type Attachment = {
     filename: string;
@@ -193,10 +194,10 @@ export const sendEmail = async ({ content, receivers, user, subject, signature, 
     };
 };
 
-type CustomEmailPayload = MultipleEmailsBody & {
+type SendCampaignPayload = {
+    campaignId: string;
     userId: string;
-    attachments?: Attachment[];
-}
+};
 
 const processContent = (content: string, recipient: Recipient, fields: string[]): string => {
     let preview = structuredClone(content);
@@ -216,20 +217,45 @@ const processContent = (content: string, recipient: Recipient, fields: string[])
 
     return preview;
 }
-export const sendMultipleEmails = async ({ content, recipients, userId, subject, attachments }: CustomEmailPayload) => {
+
+export const sendCampaignEmails = async ({ campaignId, userId }: SendCampaignPayload) => {
     const user = await User.findById(userId);
     if (!user) {
         throw new UNAUTHORIZED_ERROR('User not found');
     }
 
-    const res = await getSignatureList(user, true);
-    const signature = res?.signature || '';
-    const fields = Object.keys(recipients[0]);
-
-    for (const recipient of recipients) {
-        const emailAddress = recipient['Email'];
-        const personalizedContent = processContent(content, recipient, fields);
-        await sendEmail({ content: personalizedContent, receivers: [emailAddress], user, subject, signature, attachments });
+    const campaign = await Campaign.findById(campaignId);
+    if (!campaign) {
+        throw new BAD_REQUEST_ERROR('Campaign not found');
+    }
+    if (campaign.user_id.toString() !== userId) {
+        throw new UNAUTHORIZED_ERROR('You do not have permission to send this campaign');
     }
 
+    // Load attachments from disk
+    let emailAttachments: Attachment[] | undefined;
+    if (campaign.attachments && campaign.attachments.length > 0) {
+        emailAttachments = campaign.attachments.map((att) => ({
+            filename: att.filename,
+            mimeType: att.mimeType,
+            content: readFile(campaignId, att.storedName),
+        }));
+    }
+
+    const res = await getSignatureList(user, true);
+    const signature = res?.signature || '';
+    const fields = Object.keys(campaign.recipients[0]);
+
+    for (const recipient of campaign.recipients) {
+        const emailAddress = recipient['Email'];
+        const personalizedContent = processContent(campaign.content, recipient, fields);
+        await sendEmail({
+            content: personalizedContent,
+            receivers: [emailAddress],
+            user,
+            subject: campaign.subject,
+            signature,
+            attachments: emailAttachments,
+        });
+    }
 }

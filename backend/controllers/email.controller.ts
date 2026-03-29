@@ -1,28 +1,21 @@
 import { Request, Response, NextFunction } from 'express';
-import { sendMultipleEmails, Attachment } from '../services/email.service';
+import { sendCampaignEmails } from '../services/email.service';
 import { UNAUTHORIZED_ERROR } from '../utils/error';
-import { MultipleEmailsBody } from '../schema/email.schema';
+import { SendCampaignEmailsBody } from '../schema/email.schema';
 
-export const submitMultipleEmails = async (
-  req: Request<{}, {}, MultipleEmailsBody>,
+export const submitCampaignEmails = async (
+  req: Request<{}, {}, SendCampaignEmailsBody>,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const { content, recipients, subject } = req.body;
     const userId = req.user?.sub as string | undefined;
     if (!userId) {
       throw new UNAUTHORIZED_ERROR('Missing user context');
     }
 
-    const files = req.files as Express.Multer.File[] | undefined;
-    const attachments: Attachment[] | undefined = files?.map((file) => ({
-      filename: file.originalname,
-      mimeType: file.mimetype,
-      content: file.buffer,
-    }));
-
-    await sendMultipleEmails({ content, recipients, userId, subject, attachments });
+    const { campaignId } = req.body;
+    await sendCampaignEmails({ campaignId, userId });
 
     res.json({
       message: 'All emails accepted',

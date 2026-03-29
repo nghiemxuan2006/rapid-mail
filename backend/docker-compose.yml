@@ -32,9 +32,13 @@ services:
       - "3000:3000"
     env_file:
       - .env.test
+    environment:
+      - FILE_STORAGE_PATH=/data/rapid-mail
     depends_on:
       mongodb:
         condition: service_healthy
+    volumes:
+      - rapid_mail_data:/data/rapid-mail
     networks:
       - rapid-mail-network
     command: npm start
@@ -43,6 +47,8 @@ volumes:
   mongodb_data:
     driver: local
   mongodb_config:
+    driver: local
+  rapid_mail_data:
     driver: local
 
 networks:

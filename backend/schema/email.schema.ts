@@ -1,12 +1,10 @@
 import { z } from 'zod';
-import { recipientSchema } from './common.schema';
+import { objectIdSchema } from './common.schema';
 
 // ===== Request Schemas =====
-export const multipleEmailsBodySchema = z.object({
-  content: z.string().min(1, 'Content is required'),
-  recipients: z.array(recipientSchema).min(1, 'Recipients must be a non-empty array'),
-  subject: z.string().min(1, 'Subject is required'),
+export const sendCampaignEmailsSchema = z.object({
+  campaignId: objectIdSchema,
 });
 
 // ===== Types =====
-export type MultipleEmailsBody = z.infer<typeof multipleEmailsBodySchema>;
+export type SendCampaignEmailsBody = z.infer<typeof sendCampaignEmailsSchema>;

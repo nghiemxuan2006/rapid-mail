@@ -1,4 +1,5 @@
 import express from 'express';
+import multer from 'multer';
 import { verifyToken } from '../middleware/verify-token';
 import { validateRequestBody, validateRequestParams } from '../middleware/validation';
 import {
@@ -16,8 +17,26 @@ import {
 
 const router = express.Router();
 
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB per file
+});
+
+const parseMultipartBody: express.RequestHandler = (req, _res, next) => {
+  try {
+    if (typeof req.body.recipients === 'string') {
+      req.body.recipients = JSON.parse(req.body.recipients);
+    }
+  } catch {
+    // let validation middleware handle invalid JSON
+  }
+  next();
+};
+
 router.post('/',
   verifyToken,
+  upload.array('attachments', 10),
+  parseMultipartBody,
   validateRequestBody(createCampaignBodySchema),
   createCampaign
 );
@@ -33,6 +52,8 @@ router.get('/:id',
 router.put('/:id',
   verifyToken,
   validateRequestParams(campaignParamsSchema),
+  upload.array('attachments', 10),
+  parseMultipartBody,
   validateRequestBody(updateCampaignBodySchema),
   updateCampaign
 );

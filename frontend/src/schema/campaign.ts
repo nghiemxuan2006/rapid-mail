@@ -5,6 +5,13 @@ export interface Recipient {
     Email: string;
     [key: string]: string;
 }
+export interface Attachment {
+    filename: string;
+    storedName: string;
+    mimeType: string;
+    size: number;
+}
+
 export interface Campaign {
     _id: string;
     name: string;
@@ -12,11 +19,19 @@ export interface Campaign {
     content: string;
     status?: 'draft' | 'sent' | 'scheduled';
     recipients: Recipient[];
+    attachments?: Attachment[];
     createdAt: string;
     updatedAt: string;
 }
 
-export type CampaignCreateInput = Omit<Campaign, '_id' | 'createdAt' | 'updatedAt'>;
+export type CampaignCreateInput = Omit<Campaign, '_id' | 'createdAt' | 'updatedAt'> & {
+    files?: File[];
+};
+
+export type CampaignUpdateInput = Campaign & {
+    files?: File[];
+    removeAttachments?: string[];
+};
 
 // --- Yup Schemas ---
 
