@@ -100,25 +100,39 @@ const Campaigns = () => {
     navigate('/campaigns');
   };
 
-  const handleCreateCampaignSubmit = async (newCampaign: CampaignCreateInput) => {
+  const handleCreateCampaignSubmit = async (
+    newCampaign: CampaignCreateInput,
+    options?: { redirect?: boolean }
+  ) => {
     try {
       const res = await dispatch(createCampaignApi(newCampaign)).unwrap();
-      setCampaigns([res, ...campaigns]);
-      navigate('/campaigns');
+      setCampaigns(prev => [res, ...prev]);
+      if (options?.redirect !== false) {
+        navigate('/campaigns');
+      }
+      return res;
     } catch (error) {
       console.error('Failed to create campaign:', error);
+      throw error;
     }
   };
 
-  const handleUpdateCampaign = async (updatedCampaign: CampaignUpdateInput) => {
+  const handleUpdateCampaign = async (
+    updatedCampaign: CampaignUpdateInput,
+    options?: { redirect?: boolean }
+  ) => {
     try {
       const res = await dispatch(updateCampaignApi(updatedCampaign)).unwrap();
-      setCampaigns(campaigns.map(c =>
+      setCampaigns(prev => prev.map(c =>
         c._id === updatedCampaign._id ? res : c
       ));
-      navigate('/campaigns');
+      if (options?.redirect !== false) {
+        navigate('/campaigns');
+      }
+      return res;
     } catch (error) {
       console.error('Failed to update campaign:', error);
+      throw error;
     }
   };
 

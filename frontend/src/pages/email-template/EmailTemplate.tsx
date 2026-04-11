@@ -72,8 +72,8 @@ export const toDisplayName = (variableName: string): string => {
 interface EmailTemplateProps {
     campaign: Campaign | null;
     onBack?: () => void;
-    onCreate?: (campaign: CampaignCreateInput) => void;
-    onUpdate?: (campaign: CampaignUpdateInput) => void;
+    onCreate?: (campaign: CampaignCreateInput, options?: { redirect?: boolean }) => Promise<Campaign | void> | Campaign | void;
+    onUpdate?: (campaign: CampaignUpdateInput, options?: { redirect?: boolean }) => Promise<Campaign | void> | Campaign | void;
 }
 
 const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplateProps) => {
@@ -85,6 +85,7 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
     const [isPersonalizationOpen, setIsPersonalizationOpen] = useState(false);
     const [isAddVariableOpen, setIsAddVariableOpen] = useState(false);
     const [newFieldName, setNewFieldName] = useState('');
+    const [campaignMeta, setCampaignMeta] = useState<Campaign | null>(campaign);
 
     // Campaign data
     const [content, setContent] = useState('');
@@ -106,9 +107,12 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
     // Modal states
     const [previewIndex, setPreviewIndex] = useState(0);
     const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+    const [isSendingEmails, setIsSendingEmails] = useState(false);
+    const isSendingEmailsRef = useRef(false);
 
     // Load campaign data when component mounts or campaign changes
     useEffect(() => {
+        setCampaignMeta(campaign);
         if (campaign) {
             setCampaignName(campaign.name || '');
             setCampaignSubject(campaign.subject || '');
@@ -286,19 +290,31 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
     };
 
     const onSendEmails = async () => {
-        if (!campaign?._id) {
-            showNotifications('error', 'Please save the campaign before sending emails');
-            return;
-        }
+        if (isSendingEmailsRef.current) return;
+
+        isSendingEmailsRef.current = true;
+        setIsSendingEmails(true);
+
         try {
-            await dispatch(sendMultipleEmailsApi({ campaignId: campaign._id })).unwrap();
+            const savedCampaign = await persistCampaign({ showSuccessToast: false, redirect: false });
+            const campaignId = savedCampaign?._id || campaignMeta?._id || campaign?._id;
+
+            if (!campaignId) {
+                showNotifications('error', 'Failed to save campaign before sending emails');
+                return;
+            }
+
+            await dispatch(sendMultipleEmailsApi({ campaignId })).unwrap();
             showNotifications('success', 'Sent emails successfully to all recipients');
         } catch (err) {
             showNotifications('error', err instanceof Error ? err.message : 'Failed to send emails');
+        } finally {
+            isSendingEmailsRef.current = false;
+            setIsSendingEmails(false);
         }
     }
 
-    const handleSaveCampaign = async () => {
+    const validateCampaignBeforeSave = async () => {
         try {
             await campaignSaveSchema.validate(
                 { name: campaignName, subject: campaignSubject, recipients: filledRecipients },
@@ -308,36 +324,69 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
             if (err instanceof Error) {
                 showNotifications('error', err.message);
             }
-            return;
+            return false;
         }
+
+        return true;
+    };
+
+    const persistCampaign = async ({
+        showSuccessToast = true,
+        redirect = true,
+    }: {
+        showSuccessToast?: boolean;
+        redirect?: boolean;
+    } = {}) => {
+        const isValid = await validateCampaignBeforeSave();
+        if (!isValid) return;
 
         const newFiles = attachments.filter(att => att.file).map(att => att.file!);
 
-        if (campaign?.createdAt) {
-            const updatedCampaign: CampaignUpdateInput = {
-                _id: campaign._id,
-                name: campaignName,
-                subject: campaignSubject,
-                content: content,
-                recipients: filledRecipients,
-                createdAt: campaign.createdAt,
-                updatedAt: new Date().toISOString().split('T')[0],
-                files: newFiles,
-                removeAttachments: removedAttachments,
-            };
-            onUpdate?.(updatedCampaign);
-        } else {
-            const newCampaign: CampaignCreateInput = {
-                name: campaignName,
-                subject: campaignSubject,
-                content: content,
-                recipients: filledRecipients,
-                files: newFiles,
-            };
-            onCreate?.(newCampaign);
+        let savedCampaign: Campaign | void;
+
+        try {
+            if (campaignMeta?._id || campaign?._id) {
+                const updatedCampaign: CampaignUpdateInput = {
+                    _id: campaignMeta?._id || campaign!._id,
+                    name: campaignName,
+                    subject: campaignSubject,
+                    content: content,
+                    recipients: filledRecipients,
+                    createdAt: campaignMeta?.createdAt || campaign?.createdAt || new Date().toISOString(),
+                    updatedAt: new Date().toISOString().split('T')[0],
+                    files: newFiles,
+                    removeAttachments: removedAttachments,
+                };
+                savedCampaign = await onUpdate?.(updatedCampaign, { redirect });
+            } else {
+                const newCampaign: CampaignCreateInput = {
+                    name: campaignName,
+                    subject: campaignSubject,
+                    content: content,
+                    recipients: filledRecipients,
+                    files: newFiles,
+                };
+                savedCampaign = await onCreate?.(newCampaign, { redirect });
+            }
+        } catch (err) {
+            showNotifications('error', err instanceof Error ? err.message : 'Failed to save campaign');
+            return;
         }
 
-        showNotifications('success', campaign?.createdAt ? 'Campaign updated' : 'Campaign created');
+        if (savedCampaign && typeof savedCampaign === 'object' && '_id' in savedCampaign) {
+            setCampaignMeta(savedCampaign as Campaign);
+            setRemovedAttachments([]);
+        }
+
+        if (showSuccessToast) {
+            showNotifications('success', campaignMeta?._id || campaign?._id ? 'Campaign updated' : 'Campaign created');
+        }
+
+        return savedCampaign;
+    };
+
+    const handleSaveCampaign = async () => {
+        await persistCampaign();
     }
 
     return (
@@ -552,9 +601,11 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                 subject={campaignSubject}
                 recipients={recipients}
                 fields={fields}
+                attachments={attachments}
                 previewIndex={previewIndex}
                 onPreviewIndexChange={setPreviewIndex}
                 onSend={onSendEmails}
+                isSending={isSendingEmails}
             />
 
             {/* Personalization Modal */}
