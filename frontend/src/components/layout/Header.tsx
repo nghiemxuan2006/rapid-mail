@@ -13,12 +13,14 @@ import { useState, useEffect } from 'react';
 import { useAppDispatch } from '@/app/hook';
 import { logout } from '@/features/auth/authSlice';
 import { RapidmailLogo } from '@/components/RapidmailLogo';
+import { SettingsModal } from '@/components/SettingsModal';
 
 const Header = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
@@ -50,13 +52,13 @@ const Header = () => {
   };
 
   const navLinkClass = (path: string) =>
-    `text-sm font-medium transition-colors hover:text-primary ${
-      isActive(path)
-        ? 'text-primary'
-        : 'text-muted-foreground'
+    `text-sm font-medium transition-colors hover:text-primary ${isActive(path)
+      ? 'text-primary'
+      : 'text-muted-foreground'
     }`;
 
   return (
+    <>
     <header className="border-b bg-card">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
@@ -102,8 +104,9 @@ const Header = () => {
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Profile</DropdownMenuItem>
-                <DropdownMenuItem>Settings</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsSettingsOpen(true)}>
+                  Settings
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>
                   Logout
@@ -114,6 +117,9 @@ const Header = () => {
         </div>
       </div>
     </header>
+
+    <SettingsModal open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
+    </>
   );
 };
 

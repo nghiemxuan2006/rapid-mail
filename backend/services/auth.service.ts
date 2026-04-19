@@ -185,8 +185,26 @@ const verifyAccessToken = (token: string) => {
     }
 };
 
+const getUserProfile = async (userId: string) => {
+    if (!userId) {
+        throw new UNAUTHORIZED_ERROR('User ID not found in token');
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+        throw new UNAUTHORIZED_ERROR('User not found in database');
+    }
+
+    return {
+        email: user.email,
+        name: user.name
+    };
+};
+
 export {
     loginWithGoogle,
     verifyAccessToken,
-    refreshAppToken
+    refreshAppToken,
+    getUserProfile
 };

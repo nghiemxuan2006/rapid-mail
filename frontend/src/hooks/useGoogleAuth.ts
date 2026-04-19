@@ -49,7 +49,7 @@ export function useGoogleAuth() {
                 setRefreshToken(receivedRefreshToken ?? null)
                 setError(null)
                 dispatch(setAuthError(null))
-                navigate('/')
+                navigate('/campaigns')
             } catch (err) {
                 const errorMessage = err instanceof Error ? err.message : 'Không đổi được token'
                 setError(errorMessage)

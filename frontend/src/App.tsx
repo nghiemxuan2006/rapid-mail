@@ -1,26 +1,30 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
 import './App.css'
 import NotFoundPage from "@/pages/404";
 import { ToastContainer } from 'react-toastify';
 import Login from '@/pages/login/Login';
+import Home from '@/pages/home/Home';
 import Campaigns from '@/pages/campaigns/Campaigns';
 import Signatures from '@/pages/signatures/Signatures';
 import MainLayout from '@/components/layout/MainLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { useAppSelector } from '@/app/hook';
+
+function HomeRedirect() {
+  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated)
+
+  if (isAuthenticated) {
+    return <Navigate to="/campaigns" replace />
+  }
+
+  return <Home />
+}
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <Navigate to="/campaigns" />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/" element={<HomeRedirect />} />
         <Route
           path="/campaigns"
           element={

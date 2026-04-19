@@ -16,7 +16,7 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
 
     // Redirect về login nếu chưa đăng nhập
     if (!isAuthenticated) {
-        return <Navigate to="/login" replace />
+        return <Navigate to="/" replace />
     }
 
     return <>{children}</>
