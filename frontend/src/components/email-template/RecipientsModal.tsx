@@ -1,5 +1,10 @@
 import React from 'react';
-import { useLockBodyScroll } from '@/hooks/useLockBodyScroll';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import type { Field } from '@/pages/email-template/EmailTemplate';
 import { ContactsIcon } from '@/assets/icons';
 import { type Recipient, validateRecipients } from '@/schema/campaign';
@@ -41,15 +46,12 @@ const RecipientsModal = ({
     fields,
     onSave,
 }: RecipientsModalProps) => {
-    useLockBodyScroll(isOpen);
     const [localRecipients, setLocalRecipients] = React.useState<Recipient[]>([]);
     const [localFields, setLocalFields] = React.useState<Field[]>([]);
     const [newFieldName, setNewFieldName] = React.useState('');
     const [selectedRows, setSelectedRows] = React.useState<Set<string>>(new Set());
     const [validationErrors, setValidationErrors] = React.useState<{
-        [recipientId: string]: {
-            [fieldName: string]: string | undefined;
-        };
+        [recipientId: string]: { [fieldName: string]: string | undefined };
     }>({});
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -65,11 +67,9 @@ const RecipientsModal = ({
 
     React.useEffect(() => {
         if (!isOpen || localRecipients.length === 0) return;
-
         const allComplete = localRecipients.every(recipient =>
             localFields.every(field => (recipient[field.name] || '').trim() !== '')
         );
-
         if (allComplete) {
             setLocalRecipients(prev => [...prev, createEmptyRecipient(localFields)]);
         }
@@ -84,11 +84,8 @@ const RecipientsModal = ({
                 const next = { ...prev };
                 if (next[recipientId]) {
                     const { [fieldName]: _, ...rest } = next[recipientId];
-                    if (Object.keys(rest).length === 0) {
-                        delete next[recipientId];
-                    } else {
-                        next[recipientId] = rest;
-                    }
+                    if (Object.keys(rest).length === 0) delete next[recipientId];
+                    else next[recipientId] = rest;
                 }
                 return next;
             });
@@ -110,13 +107,11 @@ const RecipientsModal = ({
     const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
-
         if (!file.name.endsWith('.csv')) {
             showNotifications('error', 'File không hợp lệ. Chỉ chấp nhận file .csv');
             if (fileInputRef.current) fileInputRef.current.value = '';
             return;
         }
-
         const reader = new FileReader();
         reader.onload = (e) => {
             const text = e.target?.result as string;
@@ -126,68 +121,51 @@ const RecipientsModal = ({
             }
             parseCSV(text);
         };
-        reader.onerror = () => {
-            showNotifications('error', 'Không thể đọc file. Vui lòng thử lại.');
-        };
+        reader.onerror = () => showNotifications('error', 'Không thể đọc file. Vui lòng thử lại.');
         reader.readAsText(file);
-
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-        }
+        if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
     const parseCSV = (text: string) => {
         const lines = text.split('\n').filter(line => line.trim());
-        if (lines.length === 0) {
-            showNotifications('error','File CSV rỗng, không có dữ liệu để đọc.');
-            return;
-        }
+        if (lines.length === 0) { showNotifications('error', 'File CSV rỗng.'); return; }
 
         const headers = lines[0].split(',').map(h => h.trim());
         const emailIndex = headers.findIndex(h => h === 'Email');
-
         if (emailIndex === -1) {
-            showNotifications('error','File CSV thiếu cột "Email". Header phải có đúng tên "Email" (phân biệt chữ hoa/thường).');
+            showNotifications('error', 'File CSV thiếu cột "Email". Header phải có đúng tên "Email" (phân biệt chữ hoa/thường).');
             return;
         }
-
-        if (lines.length < 2) {
-            showNotifications('error','File CSV không có dữ liệu (chỉ có header, không có dòng nào).');
-            return;
-        }
+        if (lines.length < 2) { showNotifications('error', 'File CSV không có dữ liệu (chỉ có header).'); return; }
 
         const csvFields: Field[] = [];
         headers.forEach((header, index) => {
-            if (index !== emailIndex && header) {
+            if (index !== emailIndex && header)
                 csvFields.push({ id: `csv-${Date.now()}-${index}`, name: header });
-            }
         });
 
         const newRecipients: Recipient[] = [];
         for (let i = 1; i < lines.length; i++) {
             const values = lines[i].split(',').map(v => v.trim());
             if (values.length !== headers.length) {
-                showNotifications('error',`Dòng ${i + 1} không khớp cấu trúc header (kỳ vọng ${headers.length} cột, thực tế ${values.length} cột).`);
+                showNotifications('error', `Dòng ${i + 1} không khớp cấu trúc header.`);
                 return;
             }
             const email = values[emailIndex] || '';
             if (email) {
                 const recipient: Recipient = { id: `${Date.now()}-${i}`, Email: email };
                 headers.forEach((header, index) => {
-                    if (index !== emailIndex && header) {
-                        recipient[header] = values[index] || '';
-                    }
+                    if (index !== emailIndex && header) recipient[header] = values[index] || '';
                 });
                 newRecipients.push(recipient);
             }
         }
 
         if (newRecipients.length === 0) {
-            showNotifications('error','Không tìm thấy dòng nào có giá trị Email hợp lệ trong file.');
+            showNotifications('error', 'Không tìm thấy dòng nào có giá trị Email hợp lệ.');
             return;
         }
 
-        // Replace toàn bộ fields và recipients theo file CSV
         const emailField = localFields.find(f => f.name === 'Email') ?? { id: `csv-email-${Date.now()}`, name: 'Email' };
         setLocalFields([emailField, ...csvFields]);
         setLocalRecipients(newRecipients);
@@ -197,77 +175,49 @@ const RecipientsModal = ({
         const filled = localRecipients.filter(recipient =>
             localFields.some(field => (recipient[field.name] || '').trim() !== '')
         );
-
         const fieldNames = localFields.map(f => f.name);
         const { errors, hasErrors } = await validateRecipients(filled, fieldNames);
-
         if (hasErrors) {
             setValidationErrors(errors);
             showNotifications('error', 'Please fix validation errors before saving');
             return;
         }
-
         setValidationErrors({});
         onSave(filled, localFields);
         onClose();
     };
 
-    if (!isOpen) return null;
-
     const handleAddField = () => {
         if (newFieldName.trim()) {
-            const newField: Field = {
-                id: Date.now().toString(),
-                name: newFieldName,
-            };
+            const newField: Field = { id: Date.now().toString(), name: newFieldName };
             setLocalFields(prev => [...prev, newField]);
-            setLocalRecipients(prev =>
-                prev.map(r => ({ ...r, [newFieldName]: '' }))
-            );
+            setLocalRecipients(prev => prev.map(r => ({ ...r, [newFieldName]: '' })));
             setNewFieldName('');
         }
     };
 
     const handleSelectAll = (checked: boolean) => {
-        if (checked) {
-            setSelectedRows(new Set(localRecipients.map(r => r.id)));
-        } else {
-            setSelectedRows(new Set());
-        }
+        setSelectedRows(checked ? new Set(localRecipients.map(r => r.id)) : new Set());
     };
 
     const handleSelectRow = (recipientId: string) => {
-        const newSelected = new Set(selectedRows);
-        if (newSelected.has(recipientId)) {
-            newSelected.delete(recipientId);
-        } else {
-            newSelected.add(recipientId);
-        }
-        setSelectedRows(newSelected);
+        const next = new Set(selectedRows);
+        next.has(recipientId) ? next.delete(recipientId) : next.add(recipientId);
+        setSelectedRows(next);
     };
 
     const isAllSelected = localRecipients.length > 0 && selectedRows.size === localRecipients.length;
     const someSelected = selectedRows.size > 0;
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
-            <div className="bg-background rounded-lg border shadow-lg w-[95vw] max-w-300 max-h-[80vh] flex flex-col p-6 gap-6" onClick={(e) => e.stopPropagation()}>
-                {/* Header */}
-                <div className="flex justify-between items-start">
-                    <div className="space-y-1">
-                        <h2 className="text-lg font-semibold leading-none">Manage Recipients</h2>
-                        <p className="text-sm text-muted-foreground">
-                            {localRecipients.filter(r => localFields.some(f => (r[f.name] || '').trim() !== '')).length} recipients • {localFields.length} fields
-                        </p>
-                    </div>
-                    <button
-                        className="rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:outline-hidden"
-                        onClick={onClose}
-                    >
-                        <X className="size-4" />
-                        <span className="sr-only">Close</span>
-                    </button>
-                </div>
+        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+            <DialogContent className="w-[95vw] max-w-none sm:max-w-none h-[90vh] flex flex-col p-6 gap-6">
+                <DialogHeader className="space-y-1">
+                    <DialogTitle>Manage Recipients</DialogTitle>
+                    <p className="text-sm text-muted-foreground">
+                        {localRecipients.filter(r => localFields.some(f => (r[f.name] || '').trim() !== '')).length} recipients • {localFields.length} fields
+                    </p>
+                </DialogHeader>
 
                 {/* Actions */}
                 <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -277,11 +227,7 @@ const RecipientsModal = ({
                             Add Recipient
                         </Button>
                         <div className="relative">
-                            <Button
-                                onClick={() => fileInputRef.current?.click()}
-                                variant="outline"
-                                size="sm"
-                            >
+                            <Button onClick={() => fileInputRef.current?.click()} variant="outline" size="sm">
                                 <Upload className="size-4 mr-2" />
                                 Import CSV
                             </Button>
@@ -349,25 +295,14 @@ const RecipientsModal = ({
                                 </PopoverContent>
                             </Popover>
                         </div>
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept=".csv"
-                            onChange={handleFileUpload}
-                            className="hidden"
-                        />
+                        <input ref={fileInputRef} type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
                         {someSelected && (
-                            <Button
-                                onClick={handleDeleteSelected}
-                                variant="outline"
-                                size="sm"
-                            >
+                            <Button onClick={handleDeleteSelected} variant="outline" size="sm">
                                 <Trash2 className="size-4 mr-2" />
                                 Delete Selected
                             </Button>
                         )}
                     </div>
-
                     <div className="flex gap-2 items-center">
                         <Input
                             placeholder="Enter new variable name"
@@ -383,7 +318,7 @@ const RecipientsModal = ({
                     </div>
                 </div>
 
-{/* Table */}
+                {/* Table */}
                 <div className="flex-1 overflow-auto -mx-6 px-6">
                     {localRecipients.length > 0 ? (
                         <div className="rounded-lg border overflow-hidden">
@@ -392,11 +327,7 @@ const RecipientsModal = ({
                                     <TableRow className="bg-linear-to-r from-primary/5 via-primary/10 to-primary/5 hover:bg-linear-to-r border-b-2 border-primary/20">
                                         <TableHead className="w-12 py-4 border-r align-middle">
                                             <div className="flex items-center justify-center">
-                                                <Checkbox
-                                                    checked={isAllSelected}
-                                                    onCheckedChange={handleSelectAll}
-                                                    className="border-2"
-                                                />
+                                                <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} className="border-2" />
                                             </div>
                                         </TableHead>
                                         {localFields.map(field => (
@@ -432,20 +363,11 @@ const RecipientsModal = ({
                                     {localRecipients.map((recipient, index) => (
                                         <TableRow
                                             key={recipient.id}
-                                            className={`
-                                                transition-all duration-150
-                                                hover:bg-primary/5 hover:shadow-sm
-                                                ${index % 2 === 0 ? 'bg-muted/30' : 'bg-background'}
-                                                ${recipient.id && selectedRows.has(recipient.id) ? 'bg-primary/10 hover:bg-primary/15' : ''}
-                                            `}
+                                            className={`transition-all duration-150 hover:bg-primary/5 hover:shadow-sm ${index % 2 === 0 ? 'bg-muted/30' : 'bg-background'} ${selectedRows.has(recipient.id) ? 'bg-primary/10 hover:bg-primary/15' : ''}`}
                                         >
                                             <TableCell className="py-3 border-r border-dashed align-middle">
                                                 <div className="flex items-center justify-center">
-                                                    <Checkbox
-                                                        checked={selectedRows.has(recipient.id)}
-                                                        onCheckedChange={() => handleSelectRow(recipient.id)}
-                                                        className="border-2"
-                                                    />
+                                                    <Checkbox checked={selectedRows.has(recipient.id)} onCheckedChange={() => handleSelectRow(recipient.id)} className="border-2" />
                                                 </div>
                                             </TableCell>
                                             {localFields.map(field => {
@@ -458,10 +380,9 @@ const RecipientsModal = ({
                                                                 value={value}
                                                                 onChange={(e) => handleRecipientFieldChange(recipient.id, field.name, e.target.value)}
                                                                 placeholder={`Enter ${field.name.toLowerCase()}`}
-                                                                className={
-                                                                    errorMsg
-                                                                        ? 'border-2 border-destructive focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-destructive bg-destructive/10 pr-10'
-                                                                        : 'border-2 border-transparent shadow-none focus-visible:ring-1 bg-transparent hover:bg-background/50 transition-colors pr-10'
+                                                                className={errorMsg
+                                                                    ? 'border-2 border-destructive focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-destructive bg-destructive/10 pr-10'
+                                                                    : 'border-2 border-transparent shadow-none focus-visible:ring-1 bg-transparent hover:bg-background/50 transition-colors pr-10'
                                                                 }
                                                             />
                                                             {errorMsg && (
@@ -504,8 +425,8 @@ const RecipientsModal = ({
                         Save
                     </Button>
                 </div>
-            </div>
-        </div>
+            </DialogContent>
+        </Dialog>
     );
 };
 

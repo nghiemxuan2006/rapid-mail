@@ -3,6 +3,7 @@ import MailEditor, { type MailEditorRef } from '@/components/email-template/Mail
 import PreviewModal from '@/components/email-template/PreviewModal';
 import RecipientsModal from '@/components/email-template/RecipientsModal';
 import { PersonalizationModal } from '@/components/email-template/PersonalizationModal';
+import ScheduleModal from '@/components/email-template/ScheduleModal';
 import { ContactsIcon, ArrowLeftIcon, EyeIcon, CalendarIcon, FloppyDiskIcon, PaperclipIcon, PlusIcon, InfoIcon } from '@/assets/icons';
 import { sendMultipleEmailsApi } from '@/features/email/emailApi';
 import { showNotifications } from '@/utils';
@@ -82,6 +83,7 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
 
     // UI state
     const [isRecipientsModalOpen, setIsRecipientsModalOpen] = useState(false);
+    const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
     const [isPersonalizationOpen, setIsPersonalizationOpen] = useState(false);
     const [isAddVariableOpen, setIsAddVariableOpen] = useState(false);
     const [newFieldName, setNewFieldName] = useState('');
@@ -419,7 +421,7 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                                 Preview
                             </Button>
 
-                            <Button variant="outline" size="sm">
+                            <Button variant="outline" size="sm" onClick={() => setIsScheduleModalOpen(true)}>
                                 <CalendarIcon className="size-4 mr-2" />
                                 Schedule
                             </Button>
@@ -653,6 +655,13 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Schedule Modal */}
+            <ScheduleModal
+                isOpen={isScheduleModalOpen}
+                onClose={() => setIsScheduleModalOpen(false)}
+                onSchedule={(date) => console.log('Scheduled for:', date)}
+            />
 
             {/* Recipients Modal */}
             <RecipientsModal

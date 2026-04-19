@@ -1,5 +1,11 @@
 import { useState } from 'react';
-import { useLockBodyScroll } from '@/hooks/useLockBodyScroll';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from '@/components/ui/dialog';
 import type { Field } from '@/pages/email-template/EmailTemplate';
 import type { FileAttachment } from '@/pages/email-template/EmailTemplate';
 import type { Recipient } from '@/schema/campaign';
@@ -11,7 +17,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Paperclip, FileText, Image as ImageIcon, File as FileIcon } from 'lucide-react';
+import { Send, Paperclip, FileText, Image as ImageIcon, File as FileIcon } from 'lucide-react';
 
 interface PreviewModalProps {
     isOpen: boolean;
@@ -41,9 +47,6 @@ const PreviewModal = ({
     isSending = false,
 }: PreviewModalProps) => {
     const [selectOpen, setSelectOpen] = useState(false);
-    useLockBodyScroll(isOpen);
-
-    if (!isOpen) return null;
 
     const formatFileSize = (bytes: number): string => {
         if (bytes === 0) return '0 B';
@@ -59,18 +62,13 @@ const PreviewModal = ({
         let resolved = text;
         fields.forEach((field) => {
             const value = currentRecipient[field.name] || '';
-            // Replace [FieldName]
             resolved = resolved.replace(
                 new RegExp(`\\[${field.name}\\]`, 'g'),
                 value ? `<strong>${value}</strong>` : `[${field.name}]`
             );
-            // Replace {{FieldName || 'fallback'}}
             resolved = resolved.replace(
                 new RegExp(`\\{\\{${field.name}\\s*\\|\\|\\s*['"]([^'"]+)['"]\\}\\}`, 'g'),
-                (_match, fallback) => {
-                    const displayValue = value || fallback;
-                    return `<strong>${displayValue}</strong>`;
-                }
+                (_match, fallback) => `<strong>${value || fallback}</strong>`
             );
         });
         return resolved;
@@ -86,126 +84,104 @@ const PreviewModal = ({
     };
 
     return (
-        <div
-            className="fixed inset-0 z-1000 flex items-center justify-center bg-black/55 px-4 py-6 backdrop-blur-[1px]"
-            onMouseDown={(e) => {
-                if (e.target === e.currentTarget) onClose();
-            }}
-        >
-            <div
-                className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-250 max-h-[85vh] flex flex-col overflow-hidden"
-                onClick={(e) => e.stopPropagation()}
-            >
-                {/* Header */}
-                <div className="flex justify-between items-center px-6 py-4 border-b border-border/80">
-                    <div>
-                        <h2 className="text-xl font-semibold text-foreground">Email Preview</h2>
-                        {recipients.length > 0 && (
-                            <p className="text-sm text-muted-foreground mt-0.5">
-                                Recipient {previewIndex + 1} of {recipients.length}
-                            </p>
-                        )}
-                    </div>
-                    <button className="hover:bg-accent rounded-md p-1" onClick={onClose}>
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="20" height="20">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
+        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+            <DialogContent className="w-[95vw] max-w-none sm:max-w-none h-[90vh] flex flex-col">
+                <DialogHeader>
+                    <DialogTitle>Xem trước Email</DialogTitle>
+                </DialogHeader>
 
-                {/* Recipient Selector */}
-                {recipients.length > 0 && (
-                    <div className="px-6 pt-4 pb-2 flex flex-col gap-1.5">
-                        <label className="text-sm font-medium text-foreground">Preview for recipient</label>
-                        <Select
-                            value={String(previewIndex)}
-                            onValueChange={(value) => onPreviewIndexChange(Number(value))}
-                            onOpenChange={setSelectOpen}
+                {recipients.length === 0 ? (
+                    <div className="flex-1 flex items-center justify-center p-12">
+                        <div className="text-center text-muted-foreground">
+                            <div className="text-5xl mb-3 opacity-40">📧</div>
+                            <p>Không có người nhận nào để xem trước.</p>
+                            <p className="text-sm mt-1">Vui lòng thêm người nhận trước khi xem trước email.</p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="space-y-4 flex-1 flex flex-col min-h-0">
+                        {/* Recipient Selector */}
+                        <div>
+                            <label className="text-sm font-medium mb-2 block">Xem trước cho:</label>
+                            <Select
+                                value={String(previewIndex)}
+                                onValueChange={(value) => onPreviewIndexChange(Number(value))}
+                                onOpenChange={setSelectOpen}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent position="popper" className="z-60" sideOffset={4}>
+                                    {recipients.map((r, idx) => (
+                                        <SelectItem key={r.id} value={String(idx)}>
+                                            {r[fields[0]?.name] || `Recipient ${idx + 1}`}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Preview Card */}
+                        <div
+                            className="border rounded-lg p-6 bg-white dark:bg-card overflow-y-auto flex-1 min-h-0 flex flex-col"
+                            style={selectOpen ? { overflow: 'hidden' } : undefined}
                         >
-                            <SelectTrigger className="h-10 border border-border bg-background">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent position="popper" className="z-1100 bg-popover shadow-lg border border-border rounded-lg" sideOffset={4}>
-                                {recipients.map((r, idx) => (
-                                    <SelectItem key={r.id} value={String(idx)}>
-                                        {r[fields[0]?.name] || `Recipient ${idx + 1}`}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                )}
+                            <div className="shrink-0">
+                                <label className="text-sm font-medium text-muted-foreground">Tiêu đề:</label>
+                                <p className="text-lg mt-1">
+                                    <span dangerouslySetInnerHTML={{ __html: resolvedSubject || '(Không có tiêu đề)' }} />
+                                </p>
+                            </div>
 
-                {/* Preview Card */}
-                <div
-                    className="mx-6 mb-3 border border-border rounded-xl flex-1 overflow-y-auto min-h-0 bg-background/45"
-                    style={selectOpen ? { overflow: 'hidden' } : undefined}
-                >
-                    {content ? (
-                        <div className="p-5 bg-card space-y-5">
-                            <div>
-                                <span className="block text-sm text-foreground font-medium mb-2">Tiêu đề:</span>
+                            <div className="border-t pt-4 mt-4 flex-1">
+                                <label className="text-sm font-medium text-muted-foreground">Nội dung:</label>
                                 <div
-                                    className="text-base text-foreground font-normal"
-                                    dangerouslySetInnerHTML={{ __html: resolvedSubject || '<span class="empty">No subject</span>' }}
+                                    className="mt-2 prose max-w-none dark:prose-invert text-sm leading-relaxed"
+                                    dangerouslySetInnerHTML={{ __html: resolvedContent || '<p>(Không có nội dung)</p>' }}
                                 />
                             </div>
-                            <div className="border-t border-border pt-4">
-                                <span className="block text-sm text-foreground font-medium mb-2">Nội dung:</span>
-                                <div
-                                    className="text-sm text-foreground leading-relaxed"
-                                    dangerouslySetInnerHTML={{ __html: resolvedContent }}
-                                />
-                            </div>
+
                             {attachments.length > 0 && (
-                                <div className="border-t border-border pt-4">
-                                    <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
-                                        <Paperclip className="size-4 text-primary" />
-                                        <span>Tệp đính kèm ({attachments.length})</span>
-                                    </div>
-
-                                    <ul className="space-y-2 max-h-52 overflow-y-auto pr-2">
+                                <div className="border-t pt-4">
+                                    <label className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                                        <Paperclip className="size-4" />
+                                        Tệp đính kèm ({attachments.length})
+                                    </label>
+                                    <div className="mt-2 space-y-2">
                                         {attachments.map((attachment) => {
                                             const AttachmentIcon = getAttachmentIcon(attachment.type);
-
                                             return (
-                                                <li
+                                                <div
                                                     key={attachment.id}
-                                                    className="text-sm text-foreground flex items-start gap-3 rounded-lg border border-border/50 bg-muted/30 hover:bg-muted/50 px-3 py-2.5 transition-colors duration-200"
+                                                    className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border hover:bg-muted/70 transition-colors"
                                                 >
-                                                    <div className="size-8 rounded-md border border-border/60 bg-background flex items-center justify-center shrink-0 mt-0.5">
-                                                        <AttachmentIcon className="size-3.5 text-primary" />
+                                                    <div className="shrink-0">
+                                                        <AttachmentIcon className="size-5 text-muted-foreground" />
                                                     </div>
-                                                    <div className="min-w-0 flex-1">
-                                                        <p className="truncate text-sm font-medium text-foreground leading-snug">{attachment.name}</p>
-                                                        <p className="text-xs text-muted-foreground mt-1">{formatFileSize(attachment.size)}</p>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium truncate">{attachment.name}</p>
+                                                        <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
                                                     </div>
-                                                </li>
+                                                </div>
                                             );
                                         })}
-                                    </ul>
+                                    </div>
                                 </div>
                             )}
                         </div>
-                    ) : (
-                        <div className="flex flex-col items-center justify-center p-12 text-center bg-card h-full min-h-75">
-                            <div className="text-5xl mb-3 opacity-40">📧</div>
-                            <div className="text-sm text-muted-foreground font-medium">Start writing your email template</div>
-                        </div>
-                    )}
-                </div>
+                    </div>
+                )}
 
-                {/* Footer */}
-                <div className="px-6 py-4 border-t border-border/80 flex justify-end items-center gap-3">
-                    <Button onClick={onSend} disabled={isSending} className="px-6">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="18" height="18">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
-                        </svg>
-                        {isSending ? 'Sending...' : 'Send Email'}
-                    </Button>
-                </div>
-            </div>
-        </div>
+                {onSend && (
+                    <DialogFooter>
+                        <Button onClick={onSend} disabled={isSending}>
+                            <Send className="mr-2 size-4" />
+                            {isSending ? 'Đang gửi...' : 'Gửi Email'}
+                        </Button>
+                    </DialogFooter>
+                )}
+            </DialogContent>
+        </Dialog>
     );
 };
 
