@@ -25,13 +25,19 @@ export async function sendRequest<T = any>(
         finalUrl = `${url}?${queryString}`;
     }
 
+    const isFormEncoded = headers?.['Content-Type'] === 'application/x-www-form-urlencoded';
+    const body = data
+        ? (isFormEncoded || typeof data === 'string' ? data : JSON.stringify(data))
+        : undefined;
+
     const response = await fetch(finalUrl, {
         method,
         headers: { 'Content-Type': 'application/json', ...headers },
-        body: data ? JSON.stringify(data) : undefined,
+        body,
     });
 
-    const responseData = await response.json();
+    const text = await response.text();
+    const responseData = text ? JSON.parse(text) : {};
 
     return {
         data: responseData,

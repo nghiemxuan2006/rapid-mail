@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { loginWithGoogle, refreshAppToken, getUserProfile } from '../services/auth.service';
+import { loginWithGoogle, refreshAppToken, getUserProfile, connectGmailAccount, connectOutlookAccount, disconnectAccount, setActiveAccount } from '../services/auth.service';
 import { BAD_REQUEST_ERROR } from '../utils/error';
 import { extractToken } from '../utils/token';
 import { LoginQuery } from '../schema/auth.schema';
@@ -47,4 +47,52 @@ const getProfile = async (req: Request, res: Response, next: NextFunction) => {
   }
 };
 
-export { login, refresh, getProfile };
+const connectGmail = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { authorize_code } = req.query as { authorize_code?: string };
+    if (!authorize_code) throw new BAD_REQUEST_ERROR('authorize_code is required');
+
+    const result = await connectGmailAccount(req.user.sub, authorize_code);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const connectOutlook = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { authorize_code } = req.body as { authorize_code?: string };
+    if (!authorize_code) throw new BAD_REQUEST_ERROR('authorize_code is required');
+
+    const result = await connectOutlookAccount(req.user.sub, authorize_code);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const removeConnectedAccount = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { accountId } = req.params;
+    if (!accountId) throw new BAD_REQUEST_ERROR('accountId is required');
+
+    const result = await disconnectAccount(req.user.sub, accountId);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const activateConnectedAccount = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { accountId } = req.params;
+    if (!accountId) throw new BAD_REQUEST_ERROR('accountId is required');
+
+    const result = await setActiveAccount(req.user.sub, accountId);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export { login, refresh, getProfile, connectGmail, connectOutlook, removeConnectedAccount, activateConnectedAccount };

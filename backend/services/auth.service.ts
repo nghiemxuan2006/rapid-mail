@@ -1,4 +1,5 @@
 import * as jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import settings from '../config/env';
 import { BAD_REQUEST_ERROR, UNAUTHORIZED_ERROR } from '../utils/error';
 import User, { UserDocument } from '../models/user.model';
@@ -11,6 +12,20 @@ type GoogleTokenResponse = {
     token_type: string;
     expires_in: number;
     id_token?: string;
+};
+
+type MicrosoftTokenResponse = {
+    access_token: string;
+    refresh_token: string;
+    id_token?: string;
+    scope: string;
+    token_type: string;
+    expires_in: number;
+};
+
+type MicrosoftProfile = {
+    email: string;
+    displayName: string;
 };
 
 type GoogleProfile = {
@@ -198,13 +213,216 @@ const getUserProfile = async (userId: string) => {
 
     return {
         email: user.email,
-        name: user.name
+        name: user.name,
+        activeAccountId: user.activeAccountId || null,
+        connectedAccounts: (user.connectedAccounts || []).map((acc: any) => ({
+            id: acc._id.toString(),
+            email: acc.email,
+            provider: acc.provider,
+        })),
     };
+};
+
+const MICROSOFT_TOKEN_ENDPOINT = 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
+const MICROSOFT_USERINFO_ENDPOINT = 'https://graph.microsoft.com/oidc/userinfo';
+
+const exchangeMicrosoftAuthorizationCode = async (authorizeCode: string): Promise<MicrosoftTokenResponse> => {
+    if (!settings.MICROSOFT_CLIENT_ID || !settings.MICROSOFT_CLIENT_SECRET) {
+        throw new BAD_REQUEST_ERROR('Microsoft OAuth configuration is missing');
+    }
+
+    const payload = new URLSearchParams({
+        code: authorizeCode,
+        client_id: settings.MICROSOFT_CLIENT_ID,
+        client_secret: settings.MICROSOFT_CLIENT_SECRET,
+        redirect_uri: settings.MICROSOFT_REDIRECT_URI,
+        grant_type: 'authorization_code',
+    });
+
+    const response = await sendRequest({
+        method: 'POST',
+        url: MICROSOFT_TOKEN_ENDPOINT,
+        data: payload.toString(),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+
+    const data = response.data as Partial<MicrosoftTokenResponse> & { error_description?: string };
+
+    if (response.status >= 400) {
+        throw new BAD_REQUEST_ERROR(data.error_description || 'Failed to exchange code with Microsoft');
+    }
+
+    if (!data.access_token || !data.refresh_token) {
+        throw new BAD_REQUEST_ERROR('Microsoft did not return access_token or refresh_token');
+    }
+
+    return {
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+        id_token: data.id_token,
+        scope: data.scope || '',
+        token_type: data.token_type || 'Bearer',
+        expires_in: data.expires_in || 0,
+    };
+};
+
+const extractMicrosoftProfile = (idToken: string | undefined): MicrosoftProfile => {
+    if (!idToken) {
+        throw new BAD_REQUEST_ERROR('Microsoft did not return id_token');
+    }
+
+    const payload = idToken.split('.')[1];
+    if (!payload) {
+        throw new BAD_REQUEST_ERROR('Invalid id_token format');
+    }
+
+    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf-8'));
+    const email = decoded.email || decoded.preferred_username || decoded.upn;
+
+    if (!email) {
+        throw new BAD_REQUEST_ERROR('Microsoft id_token does not include an email');
+    }
+
+    return { email, displayName: decoded.name || email };
+};
+
+const connectGmailAccount = async (userId: string, authorizeCode: string) => {
+    const googleTokens = await exchangeAuthorizationCode(authorizeCode);
+    const profile = await fetchGoogleProfile(googleTokens.access_token);
+
+    const user = await User.findById(userId);
+    if (!user) throw new UNAUTHORIZED_ERROR('User not found');
+
+    const existingAccounts = user.connectedAccounts || [];
+    const alreadyConnected = existingAccounts.some(
+        (acc: any) => acc.email === profile.email && acc.provider === 'gmail'
+    );
+
+    if (alreadyConnected) {
+        await User.findByIdAndUpdate(userId, {
+            $set: {
+                'connectedAccounts.$[elem].accessToken': googleTokens.access_token,
+                'connectedAccounts.$[elem].refreshToken': googleTokens.refresh_token,
+            },
+        }, {
+            arrayFilters: [{ 'elem.email': profile.email, 'elem.provider': 'gmail' }],
+        });
+    } else {
+        await User.findByIdAndUpdate(userId, {
+            $push: {
+                connectedAccounts: {
+                    email: profile.email,
+                    provider: 'gmail',
+                    accessToken: googleTokens.access_token,
+                    refreshToken: googleTokens.refresh_token,
+                },
+            },
+        });
+    }
+
+    const updatedUser = await User.findById(userId);
+    return {
+        activeAccountId: updatedUser?.activeAccountId || null,
+        connectedAccounts: (updatedUser?.connectedAccounts || []).map((acc: any) => ({
+            id: acc._id.toString(),
+            email: acc.email,
+            provider: acc.provider,
+        })),
+    };
+};
+
+const connectOutlookAccount = async (userId: string, authorizeCode: string) => {
+    const msTokens = await exchangeMicrosoftAuthorizationCode(authorizeCode);
+    const profile = extractMicrosoftProfile(msTokens.id_token);
+
+    const user = await User.findById(userId);
+    if (!user) throw new UNAUTHORIZED_ERROR('User not found');
+
+    const existingAccounts = user.connectedAccounts || [];
+    const alreadyConnected = existingAccounts.some(
+        (acc: any) => acc.email === profile.email && acc.provider === 'outlook'
+    );
+
+    if (alreadyConnected) {
+        await User.findByIdAndUpdate(userId, {
+            $set: {
+                'connectedAccounts.$[elem].accessToken': msTokens.access_token,
+                'connectedAccounts.$[elem].refreshToken': msTokens.refresh_token,
+            },
+        }, {
+            arrayFilters: [{ 'elem.email': profile.email, 'elem.provider': 'outlook' }],
+        });
+    } else {
+        await User.findByIdAndUpdate(userId, {
+            $push: {
+                connectedAccounts: {
+                    email: profile.email,
+                    provider: 'outlook',
+                    accessToken: msTokens.access_token,
+                    refreshToken: msTokens.refresh_token,
+                },
+            },
+        });
+    }
+
+    const updatedUser = await User.findById(userId);
+    return {
+        activeAccountId: updatedUser?.activeAccountId || null,
+        connectedAccounts: (updatedUser?.connectedAccounts || []).map((acc: any) => ({
+            id: acc._id.toString(),
+            email: acc.email,
+            provider: acc.provider,
+        })),
+    };
+};
+
+const disconnectAccount = async (userId: string, accountId: string) => {
+    const user = await User.findById(userId);
+    if (!user) throw new UNAUTHORIZED_ERROR('User not found');
+
+    user.connectedAccounts = (user.connectedAccounts || []).filter(
+        (acc: any) => acc._id.toString() !== accountId
+    );
+
+    if (user.activeAccountId != null && String(user.activeAccountId) === accountId) {
+        user.activeAccountId = null;
+    }
+
+    user.markModified('connectedAccounts');
+    await user.save();
+
+    return {
+        activeAccountId: user.activeAccountId || null,
+        connectedAccounts: user.connectedAccounts.map((acc: any) => ({
+            id: acc._id.toString(),
+            email: acc.email,
+            provider: acc.provider,
+        })),
+    };
+};
+
+const setActiveAccount = async (userId: string, accountId: string) => {
+    const user = await User.findById(userId);
+    if (!user) throw new BAD_REQUEST_ERROR('User not found');
+
+    const accountExists = (user.connectedAccounts || []).some(
+        (acc: any) => acc._id.toString() === accountId
+    );
+
+    if (!accountExists) throw new BAD_REQUEST_ERROR('Connected account not found');
+
+    await User.findByIdAndUpdate(userId, { $set: { activeAccountId: accountId } });
+
+    return { activeAccountId: accountId };
 };
 
 export {
     loginWithGoogle,
     verifyAccessToken,
     refreshAppToken,
-    getUserProfile
+    getUserProfile,
+    connectGmailAccount,
+    connectOutlookAccount,
+    disconnectAccount,
+    setActiveAccount,
 };

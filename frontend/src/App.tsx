@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
 import './App.css'
 import NotFoundPage from "@/pages/404";
+import OAuthCallback from '@/pages/OAuthCallback';
 import { ToastContainer } from 'react-toastify';
 import Login from '@/pages/login/Login';
 import Home from '@/pages/home/Home';
@@ -57,6 +58,7 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/auth/callback" element={<OAuthCallback />} />
         <Route path="/*" element={<NotFoundPage />} />
       </Routes>
       <ToastContainer />

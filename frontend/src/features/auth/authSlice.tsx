@@ -1,10 +1,18 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
+export interface ConnectedAccount {
+    id: string
+    email: string
+    provider: 'gmail' | 'outlook'
+}
+
 export interface AuthState {
     isAuthenticated: boolean
     user: {
         email?: string
         name?: string
+        connectedAccounts?: ConnectedAccount[]
+        activeAccountId?: string | null
     } | null
     loading: boolean
     error: string | null
@@ -71,21 +79,42 @@ const authSlice = createSlice({
         },
         setUserProfile: (
             state,
-            action: PayloadAction<{ email?: string; name?: string }>
+            action: PayloadAction<{ email?: string; name?: string; connectedAccounts?: ConnectedAccount[]; activeAccountId?: string | null }>
         ) => {
             if (state.user) {
                 state.user.email = action.payload.email ?? state.user.email
                 state.user.name = action.payload.name ?? state.user.name
+                if (action.payload.connectedAccounts !== undefined) {
+                    state.user.connectedAccounts = action.payload.connectedAccounts
+                }
+                if (action.payload.activeAccountId !== undefined) {
+                    state.user.activeAccountId = action.payload.activeAccountId
+                }
             } else {
                 state.user = {
                     email: action.payload.email,
                     name: action.payload.name,
+                    connectedAccounts: action.payload.connectedAccounts,
+                    activeAccountId: action.payload.activeAccountId,
                 }
+            }
+        },
+        setConnectedAccounts: (state, action: PayloadAction<{ connectedAccounts: ConnectedAccount[]; activeAccountId?: string | null }>) => {
+            if (state.user) {
+                state.user.connectedAccounts = action.payload.connectedAccounts
+                if (action.payload.activeAccountId !== undefined) {
+                    state.user.activeAccountId = action.payload.activeAccountId
+                }
+            }
+        },
+        setActiveAccountId: (state, action: PayloadAction<string | null>) => {
+            if (state.user) {
+                state.user.activeAccountId = action.payload
             }
         },
     },
 })
 
-export const { setCredentials, logout, setLoading, setError, initializeAuth, setUserProfile } = authSlice.actions
+export const { setCredentials, logout, setLoading, setError, initializeAuth, setUserProfile, setConnectedAccounts, setActiveAccountId } = authSlice.actions
 
 export default authSlice.reducer
