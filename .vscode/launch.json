@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "node",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "restart": true,
+            "name": "backend",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "runtimeExecutable": "nodemon",
+            "cwd": "${workspaceFolder}\\backend"
+        }
+    ]
+}

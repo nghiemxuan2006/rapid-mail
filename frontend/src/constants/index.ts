@@ -1,7 +1,9 @@
-export const GMAIL_SCOPES: string[] = [
-    'https://www.googleapis.com/auth/gmail.readonly',
-    'https://www.googleapis.com/auth/gmail.send',
-    'openid',
-    'profile',
-    'email'
-];
+import { GMAIL_SCOPES } from "./gmail";
+import { BACKEND_BASE_URL, CLIENT_ID } from "./env";
+
+export {
+    GMAIL_SCOPES,
+    BACKEND_BASE_URL,
+    CLIENT_ID
+}
+
