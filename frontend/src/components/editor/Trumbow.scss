@@ -1,9 +1,14 @@
-.trumbow-editor-wrapper .trumbowyg-box {
-  border: 1px solid #ddd;
-  border-radius: 4px;
-}
+.trumbow-editor-wrapper {
+  .trumbowyg-editor-box {
+    display: flex;
+    flex-direction: column;
+    min-height: var(--trumbow-min-height, 160px);
+  }
 
-.trumbow-editor-wrapper .trumbowyg-editor {
-  min-height: 300px;
-  padding: 10px;
+  .trumbowyg-editor {
+    flex: 1;
+    min-height: 0;
+    padding: 10px;
+    margin: 0;
+  }
 }

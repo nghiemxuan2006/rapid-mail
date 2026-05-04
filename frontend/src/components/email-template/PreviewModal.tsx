@@ -31,6 +31,7 @@ interface PreviewModalProps {
     onPreviewIndexChange: (index: number) => void;
     onSend?: () => void;
     isSending?: boolean;
+    signature?: string;
 }
 
 const PreviewModal = ({
@@ -45,6 +46,7 @@ const PreviewModal = ({
     onPreviewIndexChange,
     onSend,
     isSending = false,
+    signature,
 }: PreviewModalProps) => {
     const [selectOpen, setSelectOpen] = useState(false);
 
@@ -139,10 +141,18 @@ const PreviewModal = ({
                                     className="mt-2 prose max-w-none dark:prose-invert text-sm leading-relaxed"
                                     dangerouslySetInnerHTML={{ __html: resolvedContent || '<p>(Không có nội dung)</p>' }}
                                 />
+                                {signature && (
+                                    <div className="mt-4 pt-4 border-t border-dashed">
+                                        <div
+                                            className="prose max-w-none dark:prose-invert text-sm leading-relaxed"
+                                            dangerouslySetInnerHTML={{ __html: signature }}
+                                        />
+                                    </div>
+                                )}
                             </div>
 
                             {attachments.length > 0 && (
-                                <div className="border-t pt-4">
+                                <div className="border-t pt-4 mt-4">
                                     <label className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
                                         <Paperclip className="size-4" />
                                         Tệp đính kèm ({attachments.length})

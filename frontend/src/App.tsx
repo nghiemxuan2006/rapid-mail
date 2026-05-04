@@ -7,6 +7,7 @@ import Login from '@/pages/login/Login';
 import Home from '@/pages/home/Home';
 import Campaigns from '@/pages/campaigns/Campaigns';
 import Signatures from '@/pages/signatures/Signatures';
+import About from '@/pages/about/About';
 import MainLayout from '@/components/layout/MainLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAppSelector } from '@/app/hook';
@@ -51,10 +52,10 @@ function App() {
           }
         />
         <Route
-          path="/signatures"
+          path="/about"
           element={
             <ProtectedRoute>
-              <MainLayout><Signatures /></MainLayout>
+              <MainLayout><About /></MainLayout>
             </ProtectedRoute>
           }
         />

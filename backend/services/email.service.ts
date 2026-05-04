@@ -3,10 +3,28 @@ import logger from '../utils/wiston-log';
 import settings from '../config/env';
 import User, { UserDocument } from '../models/user.model';
 import Campaign from '../models/campaign.model';
+import Signature from '../models/signature.model';
 import { Recipient } from '../schema/common.schema';
-import { getSignatureList } from './signature.service';
 import { sendRequest } from '../utils/send-request';
 import { readFile } from './file-storage.service';
+import { cleanSignatureHtml } from '../utils/clean-signature-html';
+
+type InlineImage = {
+    contentId: string;
+    mimeType: string;
+    contentBytes: string; // base64
+};
+
+function extractInlineImages(html: string): { html: string; images: InlineImage[] } {
+    const images: InlineImage[] = [];
+    let idx = 0;
+    const result = html.replace(/src="data:([^;]+);base64,([^"]+)"/g, (_match, mimeType, b64) => {
+        const contentId = `inline-img-${idx++}@rapidmail`;
+        images.push({ contentId, mimeType, contentBytes: b64 });
+        return `src="cid:${contentId}"`;
+    });
+    return { html: result, images };
+}
 
 export type Attachment = {
     filename: string;
@@ -163,16 +181,47 @@ const refreshMicrosoftAccessToken = async (refreshToken: string): Promise<string
     return data.access_token;
 };
 
-const sendWithOutlookApi = async (accessToken: string, from: string, to: string[], subject: string, content: string) => {
-    const body = {
-        message: {
-            subject,
-            body: { contentType: 'HTML', content },
-            toRecipients: to.map((address) => ({ emailAddress: { address } })),
-            from: { emailAddress: { address: from } },
-        },
-        saveToSentItems: true,
+const sendWithOutlookApi = async (
+    accessToken: string,
+    from: string,
+    to: string[],
+    subject: string,
+    content: string,
+    attachments?: Attachment[],
+) => {
+    const { html: processedContent, images: inlineImages } = extractInlineImages(content);
+
+    const allAttachments: unknown[] = attachments?.map((att) => ({
+        '@odata.type': '#microsoft.graph.fileAttachment',
+        name: att.filename,
+        contentType: att.mimeType,
+        contentBytes: att.content.toString('base64'),
+        isInline: false,
+    })) ?? [];
+
+    for (const img of inlineImages) {
+        allAttachments.push({
+            '@odata.type': '#microsoft.graph.fileAttachment',
+            name: img.contentId,
+            contentType: img.mimeType,
+            contentBytes: img.contentBytes,
+            contentId: img.contentId,
+            isInline: true,
+        });
+    }
+
+    const message: Record<string, unknown> = {
+        subject,
+        body: { contentType: 'HTML', content: processedContent },
+        toRecipients: to.map((address) => ({ emailAddress: { address } })),
+        from: { emailAddress: { address: from } },
     };
+
+    if (allAttachments.length > 0) {
+        message.attachments = allAttachments;
+    }
+
+    const body = { message, saveToSentItems: true };
 
     const response = await sendRequest({
         method: 'POST',
@@ -236,7 +285,8 @@ export const sendEmail = async ({ content, receivers, user, subject, signature, 
     const uniqueReceivers = Array.from(new Set(receivers.map((receiver) => receiver.trim().toLowerCase())));
 
 
-    const bodyContent = content.trim() + '\n\n' + (signature || '');
+    const cleanedSignature = signature ? cleanSignatureHtml(signature) : '';
+    const bodyContent = content.trim() + (cleanedSignature ? '\n\n' + cleanedSignature : '');
 
     // Determine sending account: use active connected account if set, else fall back to login Google account
     logger.info('sendEmail: activeAccountId=' + user.activeAccountId + ' connectedAccounts=' + JSON.stringify((user.connectedAccounts || []).map((a: any) => ({ id: a._id.toString(), provider: a.provider, email: a.email }))));
@@ -248,15 +298,15 @@ export const sendEmail = async ({ content, receivers, user, subject, signature, 
     if (activeAccount && activeAccount.provider === 'outlook') {
         // Send via Microsoft Graph / Outlook
         let accessToken = activeAccount.accessToken;
-        let sendResult = await sendWithOutlookApi(accessToken, activeAccount.email, uniqueReceivers, subject, bodyContent);
+        let sendResult = await sendWithOutlookApi(accessToken, activeAccount.email, uniqueReceivers, subject, bodyContent, attachments);
 
         if (sendResult.needRefresh) {
             accessToken = await refreshMicrosoftAccessToken(activeAccount.refreshToken!);
             await User.findOneAndUpdate(
-                { _id: user._id, 'connectedAccounts._id': activeAccount._id },
+                { _id: user._id, 'connectedAccounts._id': user.activeAccountId },
                 { $set: { 'connectedAccounts.$.accessToken': accessToken } }
             );
-            sendResult = await sendWithOutlookApi(accessToken, activeAccount.email, uniqueReceivers, subject, bodyContent);
+            sendResult = await sendWithOutlookApi(accessToken, activeAccount.email, uniqueReceivers, subject, bodyContent, attachments);
         }
 
         if (sendResult.needRefresh) {
@@ -296,7 +346,7 @@ export const sendEmail = async ({ content, receivers, user, subject, signature, 
         accessToken = await refreshGoogleAccessToken(gmailRefreshToken!);
         if (activeAccount?.provider === 'gmail') {
             await User.findOneAndUpdate(
-                { _id: user._id, 'connectedAccounts._id': activeAccount._id },
+                { _id: user._id, 'connectedAccounts._id': user.activeAccountId },
                 { $set: { 'connectedAccounts.$.accessToken': accessToken } }
             );
         } else {
@@ -367,8 +417,15 @@ export const sendCampaignEmails = async ({ campaignId, userId }: SendCampaignPay
         }));
     }
 
-    const res = await getSignatureList(user, true);
-    const signature = res?.signature || '';
+    const activeAccount = user.activeAccountId
+        ? (user.connectedAccounts || []).find((acc: any) => acc._id.toString() === String(user.activeAccountId))
+        : null;
+    const senderEmail = activeAccount?.email || user.email;
+
+    const matchedSignature = await Signature.findOne({ userId, sourceEmail: senderEmail }).lean()
+        ?? await Signature.findOne({ userId, isDefault: true }).lean();
+    const signature = matchedSignature?.content || '';
+
     const fields = Object.keys(campaign.recipients[0]);
 
     for (const recipient of campaign.recipients) {

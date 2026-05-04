@@ -1,12 +1,28 @@
 import express from 'express';
-import { getSignatures, updateSignature } from '../controllers/signature.controller';
+import {
+    importGmailSignaturesHandler,
+    importGmailSignaturesByAccountHandler,
+    getSignaturesHandler,
+    getDefaultSignatureHandler,
+    createSignatureHandler,
+    updateSignatureHandler,
+    deleteSignatureHandler,
+} from '../controllers/signature.controller';
 import { verifyToken } from '../middleware/verify-token';
 import { validateRequestBody } from '../middleware/validation';
-import { updateSignatureBodySchema } from '../schema/signature.schema';
+import { createSignatureBodySchema, updateMySignatureBodySchema } from '../schema/signature.schema';
 
 const router = express.Router();
 
-router.get('/', verifyToken, getSignatures);
-router.put('/', verifyToken, validateRequestBody(updateSignatureBodySchema), updateSignature);
+// Import from provider APIs
+router.get('/import/gmail', verifyToken, importGmailSignaturesHandler);
+router.get('/import/gmail/:accountId', verifyToken, importGmailSignaturesByAccountHandler);
+
+// App-managed signatures
+router.get('/default', verifyToken, getDefaultSignatureHandler);
+router.get('/', verifyToken, getSignaturesHandler);
+router.post('/', verifyToken, validateRequestBody(createSignatureBodySchema), createSignatureHandler);
+router.put('/:id', verifyToken, validateRequestBody(updateMySignatureBodySchema), updateSignatureHandler);
+router.delete('/:id', verifyToken, deleteSignatureHandler);
 
 export default router;
