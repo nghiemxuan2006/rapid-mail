@@ -1,10 +1,6 @@
 import React from 'react';
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+import { DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { BaseModal } from '@/components/ui/base-modal';
 import type { Field } from '@/pages/email-template/EmailTemplate';
 import { ContactsIcon } from '@/assets/icons';
 import { type Recipient, validateRecipients } from '@/schema/campaign';
@@ -210,15 +206,15 @@ const RecipientsModal = ({
     const someSelected = selectedRows.size > 0;
 
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="w-[95vw] max-w-none sm:max-w-none h-[90vh] flex flex-col p-6 gap-6">
-                <DialogHeader className="space-y-1">
-                    <DialogTitle>Manage Recipients</DialogTitle>
-                    <p className="text-sm text-muted-foreground">
-                        {localRecipients.filter(r => localFields.some(f => (r[f.name] || '').trim() !== '')).length} recipients • {localFields.length} fields
-                    </p>
-                </DialogHeader>
+        <BaseModal open={isOpen} onOpenChange={(open) => !open && onClose()} size="fullscreen">
+            <DialogHeader className="shrink-0 space-y-1 px-6 pt-6 pb-2">
+                <DialogTitle>Manage Recipients</DialogTitle>
+                <p className="text-sm text-muted-foreground">
+                    {localRecipients.filter(r => localFields.some(f => (r[f.name] || '').trim() !== '')).length} recipients • {localFields.length} fields
+                </p>
+            </DialogHeader>
 
+            <div className="flex-1 overflow-hidden flex flex-col px-6 py-4 gap-4">
                 {/* Actions */}
                 <div className="flex items-center justify-between gap-4 flex-wrap">
                     <div className="flex gap-2">
@@ -319,7 +315,7 @@ const RecipientsModal = ({
                 </div>
 
                 {/* Table */}
-                <div className="flex-1 overflow-auto -mx-6 px-6">
+                <div className="flex-1 overflow-auto">
                     {localRecipients.length > 0 ? (
                         <div className="rounded-lg border overflow-hidden">
                             <Table>
@@ -331,7 +327,7 @@ const RecipientsModal = ({
                                             </div>
                                         </TableHead>
                                         {localFields.map(field => (
-                                            <TableHead key={field.id} className="min-w-50 font-bold text-xs uppercase tracking-wider py-4 border-r align-middle">
+                                            <TableHead key={field.id} className={`${field.name.toLowerCase() === 'email' ? 'min-w-64' : 'min-w-52'} font-bold text-xs uppercase tracking-wider py-4 border-r align-middle`}>
                                                 <div className="flex items-center justify-center gap-2">
                                                     <span className="flex-1 text-center">{field.name.toUpperCase()}</span>
                                                     {field.name.toLowerCase() !== 'email' && (
@@ -382,7 +378,7 @@ const RecipientsModal = ({
                                                                 placeholder={`Enter ${field.name.toLowerCase()}`}
                                                                 className={errorMsg
                                                                     ? 'border-2 border-destructive focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-destructive bg-destructive/10 pr-10'
-                                                                    : 'border-2 border-transparent shadow-none focus-visible:ring-1 bg-transparent hover:bg-background/50 transition-colors pr-10'
+                                                                    : 'border-0 shadow-none focus-visible:ring-1 bg-transparent hover:bg-background/50 transition-colors'
                                                                 }
                                                             />
                                                             {errorMsg && (
@@ -419,14 +415,14 @@ const RecipientsModal = ({
                 </div>
 
                 {/* Footer */}
-                <div className="flex justify-end">
+                <div className="flex justify-end pt-4">
                     <Button onClick={handleSave}>
                         <Save className="size-4 mr-2" />
                         Save
                     </Button>
                 </div>
-            </DialogContent>
-        </Dialog>
+            </div>
+        </BaseModal>
     );
 };
 

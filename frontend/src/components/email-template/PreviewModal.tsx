@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import {
-    Dialog,
-    DialogContent,
     DialogHeader,
     DialogTitle,
     DialogFooter,
 } from '@/components/ui/dialog';
+import { BaseModal } from '@/components/ui/base-modal';
 import type { Field } from '@/pages/email-template/EmailTemplate';
 import type { FileAttachment } from '@/pages/email-template/EmailTemplate';
 import type { Recipient } from '@/schema/campaign';
@@ -86,14 +85,14 @@ const PreviewModal = ({
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="w-[95vw] max-w-none sm:max-w-none h-[90vh] flex flex-col">
-                <DialogHeader>
-                    <DialogTitle>Xem trước Email</DialogTitle>
-                </DialogHeader>
+        <BaseModal open={isOpen} onOpenChange={(open) => !open && onClose()} size="3xl">
+            <DialogHeader className="px-6 pt-6 pb-4">
+                <DialogTitle>Xem trước Email</DialogTitle>
+            </DialogHeader>
 
+            <div className="flex-1 overflow-auto px-6 py-4">
                 {recipients.length === 0 ? (
-                    <div className="flex-1 flex items-center justify-center p-12">
+                    <div className="flex items-center justify-center p-12">
                         <div className="text-center text-muted-foreground">
                             <div className="text-5xl mb-3 opacity-40">📧</div>
                             <p>Không có người nhận nào để xem trước.</p>
@@ -101,7 +100,7 @@ const PreviewModal = ({
                         </div>
                     </div>
                 ) : (
-                    <div className="space-y-4 flex-1 flex flex-col min-h-0">
+                    <div className="space-y-4">
                         {/* Recipient Selector */}
                         <div>
                             <label className="text-sm font-medium mb-2 block">Xem trước cho:</label>
@@ -124,27 +123,24 @@ const PreviewModal = ({
                         </div>
 
                         {/* Preview Card */}
-                        <div
-                            className="border rounded-lg p-6 bg-white dark:bg-card overflow-y-auto flex-1 min-h-0 flex flex-col"
-                            style={selectOpen ? { overflow: 'hidden' } : undefined}
-                        >
-                            <div className="shrink-0">
+                        <div className="border rounded-lg p-6 bg-white dark:bg-card space-y-4">
+                            <div>
                                 <label className="text-sm font-medium text-muted-foreground">Tiêu đề:</label>
                                 <p className="text-lg mt-1">
                                     <span dangerouslySetInnerHTML={{ __html: resolvedSubject || '(Không có tiêu đề)' }} />
                                 </p>
                             </div>
 
-                            <div className="border-t pt-4 mt-4 flex-1">
+                            <div className="border-t pt-4">
                                 <label className="text-sm font-medium text-muted-foreground">Nội dung:</label>
                                 <div
                                     className="mt-2 prose max-w-none dark:prose-invert text-sm leading-relaxed"
                                     dangerouslySetInnerHTML={{ __html: resolvedContent || '<p>(Không có nội dung)</p>' }}
                                 />
                                 {signature && (
-                                    <div className="mt-4 pt-4 border-t border-dashed">
+                                    <div className="mt-6 pt-4 border-t">
                                         <div
-                                            className="prose max-w-none dark:prose-invert text-sm leading-relaxed"
+                                            className="prose max-w-none dark:prose-invert text-sm"
                                             dangerouslySetInnerHTML={{ __html: signature }}
                                         />
                                     </div>
@@ -152,7 +148,7 @@ const PreviewModal = ({
                             </div>
 
                             {attachments.length > 0 && (
-                                <div className="border-t pt-4 mt-4">
+                                <div className="border-t pt-4">
                                     <label className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
                                         <Paperclip className="size-4" />
                                         Tệp đính kèm ({attachments.length})
@@ -181,17 +177,17 @@ const PreviewModal = ({
                         </div>
                     </div>
                 )}
+            </div>
 
-                {onSend && (
-                    <DialogFooter>
-                        <Button onClick={onSend} disabled={isSending}>
-                            <Send className="mr-2 size-4" />
-                            {isSending ? 'Đang gửi...' : 'Gửi Email'}
-                        </Button>
-                    </DialogFooter>
-                )}
-            </DialogContent>
-        </Dialog>
+            {onSend && (
+                <DialogFooter className="px-6 py-4 border-t">
+                    <Button onClick={onSend} disabled={isSending}>
+                        <Send className="mr-2 size-4" />
+                        {isSending ? 'Đang gửi...' : 'Gửi Email'}
+                    </Button>
+                </DialogFooter>
+            )}
+        </BaseModal>
     );
 };
 

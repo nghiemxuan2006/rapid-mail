@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Dialog,
-  DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { BaseModal } from '@/components/ui/base-modal';
 import { Button } from '@/components/ui/button';
 import { User, Mail, FileSignature } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '@/app/hook';
@@ -309,9 +308,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     }`;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-none sm:max-w-none w-[95vw] h-[90vh] p-0 gap-0 overflow-hidden flex flex-col">
-        <DialogHeader className="border-b px-6 py-4 shrink-0">
+    <BaseModal open={open} onOpenChange={onOpenChange} size="fullscreen">
+        <DialogHeader className="shrink-0 border-b px-6 py-4">
           <DialogTitle>Settings</DialogTitle>
         </DialogHeader>
 
@@ -383,7 +381,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
             {activeTab === 'profile' && <Button>Save Changes</Button>}
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+    </BaseModal>
   );
 }
