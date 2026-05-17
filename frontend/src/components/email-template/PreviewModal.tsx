@@ -17,6 +17,9 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Send, Paperclip, FileText, Image as ImageIcon, File as FileIcon } from 'lucide-react';
+import SendScheduleModal from '@/components/email-template/SendScheduleModal';
+import { showNotifications } from '@/utils/showNotification';
+import { format } from 'date-fns';
 
 interface PreviewModalProps {
     isOpen: boolean;
@@ -48,6 +51,7 @@ const PreviewModal = ({
     signature,
 }: PreviewModalProps) => {
     const [selectOpen, setSelectOpen] = useState(false);
+    const [isSendScheduleOpen, setIsSendScheduleOpen] = useState(false);
 
     const formatFileSize = (bytes: number): string => {
         if (bytes === 0) return '0 B';
@@ -181,12 +185,31 @@ const PreviewModal = ({
 
             {onSend && (
                 <DialogFooter className="px-6 py-4 border-t">
-                    <Button onClick={onSend} disabled={isSending}>
+                    <Button onClick={() => setIsSendScheduleOpen(true)} disabled={isSending}>
                         <Send className="mr-2 size-4" />
                         {isSending ? 'Đang gửi...' : 'Gửi Email'}
                     </Button>
                 </DialogFooter>
             )}
+
+            <SendScheduleModal
+                open={isSendScheduleOpen}
+                onOpenChange={setIsSendScheduleOpen}
+                recipients={recipients}
+                onConfirm={(method, schedules) => {
+                    setIsSendScheduleOpen(false);
+                    onClose();
+                    if (method === 'now') {
+                        showNotifications('success', `Đang gửi chiến dịch đến ${recipients.length} người nhận...`);
+                    } else if (method === 'schedule-all' && schedules?.length) {
+                        const d = schedules[0].scheduledDate;
+                        showNotifications('success', `Đã lên lịch gửi vào ${format(d, 'dd/MM/yyyy')} lúc ${format(d, 'HH:mm')}`);
+                    } else if (method === 'schedule-individual') {
+                        showNotifications('success', `Đã lên lịch cho ${recipients.length} người nhận`);
+                    }
+                    onSend?.();
+                }}
+            />
         </BaseModal>
     );
 };

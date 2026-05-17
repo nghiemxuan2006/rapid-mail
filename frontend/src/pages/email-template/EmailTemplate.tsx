@@ -26,7 +26,9 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { FileText, Image as ImageIcon, File as FileIcon, X } from 'lucide-react';
+import { FileText, Image as ImageIcon, File as FileIcon, X, BarChart3 } from 'lucide-react';
+import { CampaignDetailsModal } from '@/components/CampaignDetailsModal';
+import type { CampaignDeliveryDetails } from '@/schema/campaign';
 
 export interface FileAttachment {
     id: string;
@@ -118,6 +120,9 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
             }
         });
     }, [dispatch, activeAccountId]);
+
+    // Delivery modal
+    const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
 
     // Modal states
     const [previewIndex, setPreviewIndex] = useState(0);
@@ -425,6 +430,18 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                         </div>
 
                         <div className="flex items-center gap-2">
+                            {campaignMeta?.status === 'sent' && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setIsDeliveryModalOpen(true)}
+                                    className="border-[#9d7d59] text-[#9d7d59] hover:bg-[#9d7d59]/10"
+                                >
+                                    <BarChart3 className="size-4 mr-2" />
+                                    Delivery
+                                </Button>
+                            )}
+
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -688,6 +705,24 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                     setFields(newFields);
                 }}
             />
+
+            {/* Delivery Overview Modal */}
+            {campaignMeta?.status === 'sent' && (
+                <CampaignDetailsModal
+                    open={isDeliveryModalOpen}
+                    onOpenChange={setIsDeliveryModalOpen}
+                    campaign={{
+                        id: campaignMeta._id,
+                        name: campaignMeta.name,
+                        subject: campaignMeta.subject,
+                        content: campaignMeta.content,
+                        status: campaignMeta.status,
+                        // TODO: populate from API
+                        stats: { total: 0, success: 0, failed: 0, pending: 0, successRate: 0, failureBreakdown: { invalid_email: 0, smtp_error: 0, bounced: 0, rate_limit: 0, blocked: 0, other: 0 } },
+                        deliveryRecipients: [],
+                    } satisfies CampaignDeliveryDetails}
+                />
+            )}
         </div>
     );
 };

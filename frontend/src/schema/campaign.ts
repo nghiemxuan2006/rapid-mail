@@ -1,5 +1,49 @@
 import * as yup from 'yup';
 
+export type RecipientStatus = 'success' | 'failed' | 'pending';
+
+export type FailureReason = 'invalid_email' | 'smtp_error' | 'bounced' | 'rate_limit' | 'blocked' | 'other';
+
+export interface RecipientDeliveryStatus {
+    id: string;
+    email: string;
+    status: RecipientStatus;
+    sentAt?: Date;
+    failureReason?: FailureReason;
+    errorMessage?: string;
+    serverResponse?: string;
+}
+
+export interface CampaignStats {
+    total: number;
+    success: number;
+    failed: number;
+    pending: number;
+    successRate: number;
+    failureBreakdown: Record<FailureReason, number>;
+}
+
+export interface CampaignDeliveryDetails {
+    id: string;
+    name: string;
+    subject: string;
+    content: string;
+    sentAt?: Date;
+    status: string;
+    stats: CampaignStats;
+    deliveryRecipients: RecipientDeliveryStatus[];
+}
+
+export interface SentCampaignSummary {
+    id: string;
+    campaignName: string;
+    subject: string;
+    sentAt: string;
+    totalRecipients: number;
+    successCount: number;
+    failedCount: number;
+}
+
 export interface Recipient {
     id: string;
     Email: string;

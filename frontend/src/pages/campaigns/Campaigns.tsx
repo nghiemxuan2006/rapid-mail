@@ -31,7 +31,9 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, MoreVertical, FileText, Calendar, Send, Edit } from 'lucide-react';
+import { Plus, Search, MoreVertical, FileText, Calendar, Send, Edit, Eye } from 'lucide-react';
+import { CampaignDetailsModal } from '@/components/CampaignDetailsModal';
+import type { CampaignDeliveryDetails } from '@/schema/campaign';
 import ConfirmModal from '@/components/ConfirmModal';
 import RenameModal from '@/components/RenameModal';
 
@@ -47,6 +49,10 @@ const Campaigns = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  // Delivery modal
+  const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
+  const [selectedDeliveryCampaign, setSelectedDeliveryCampaign] = useState<CampaignDeliveryDetails | null>(null);
 
   // Modal states
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -319,19 +325,20 @@ const Campaigns = () => {
                 <TableHead>Status</TableHead>
                 <TableHead>Recipients</TableHead>
                 <TableHead>Created At</TableHead>
-                <TableHead className="w-[70px]">Action</TableHead>
+                <TableHead className="text-center">Details</TableHead>
+                <TableHead className="w-17.5">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     Loading campaigns...
                   </TableCell>
                 </TableRow>
               ) : currentCampaigns.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     {searchQuery ? 'No campaigns found' : 'No campaigns yet. Create your first campaign!'}
                   </TableCell>
                 </TableRow>
@@ -346,6 +353,31 @@ const Campaigns = () => {
                     <TableCell>{getStatusBadge(campaign.status)}</TableCell>
                     <TableCell>{campaign.recipients?.length ?? 0}</TableCell>
                     <TableCell>{campaign.createdAt}</TableCell>
+                    <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                      {campaign.status === 'sent' ? (
+                        <button
+                          onClick={() => {
+                            setSelectedDeliveryCampaign({
+                              id: campaign._id,
+                              name: campaign.name,
+                              subject: campaign.subject,
+                              content: campaign.content,
+                              status: campaign.status,
+                              // TODO: populate from API
+                              stats: { total: 0, success: 0, failed: 0, pending: 0, successRate: 0, failureBreakdown: { invalid_email: 0, smtp_error: 0, bounced: 0, rate_limit: 0, blocked: 0, other: 0 } },
+                              deliveryRecipients: [],
+                            });
+                            setIsDeliveryModalOpen(true);
+                          }}
+                          className="inline-flex items-center gap-1 text-sm text-[#9d7d59] hover:text-[#8b6d49] transition-colors"
+                        >
+                          <Eye className="h-4 w-4" />
+                          <span>View</span>
+                        </button>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -439,6 +471,14 @@ const Campaigns = () => {
         }}
         isLoading={isActionLoading}
       />
+      {selectedDeliveryCampaign && (
+        <CampaignDetailsModal
+          open={isDeliveryModalOpen}
+          onOpenChange={setIsDeliveryModalOpen}
+          campaign={selectedDeliveryCampaign}
+        />
+      )}
+
       <RenameModal
         isOpen={showRenameModal}
         currentName={selectedCampaignForAction?.name || ''}
