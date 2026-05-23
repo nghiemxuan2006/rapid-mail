@@ -63,9 +63,16 @@ export const startConsumer = async (maxRetries: number): Promise<void> => {
   channel.consume(queue, async (msg) => {
     if (!msg) return;
 
-    const { campaignId, jobId } = JSON.parse(msg.content.toString()) as QueueMessage;
+    const parsed = JSON.parse(msg.content.toString());
+    if (!parsed.campaignId || !parsed.jobId) {
+      logger.warn('Invalid message format, skipping', { parsed });
+      channel.ack(msg);
+      return;
+    }
+    const { campaignId, jobId } = parsed as QueueMessage;
     logger.info(`Processing job ${jobId} for campaign ${campaignId}`);
 
+    let retryCount = 0;
     try {
       const campaign = await Campaign.findById(campaignId);
       if (!campaign) {
@@ -76,10 +83,19 @@ export const startConsumer = async (maxRetries: number): Promise<void> => {
 
       const jobs = campaign.email_jobs as Record<string, EmailJob>;
       const job = jobs[jobId];
+      retryCount = job?.retryCount ?? 0;
 
       if (!job || job.status === 'cancelled') {
         logger.info(`Job ${jobId} is cancelled or missing, skipping`);
         channel.ack(msg);
+        return;
+      }
+
+      if (!job.recipientData?.['Email']) {
+        logger.error(`Job ${jobId} missing recipient email, marking as failed`);
+        await updateJobStatus(campaignId, jobId, { status: 'failed', error: 'Missing recipient email' });
+        channel.ack(msg);
+        await checkAndFinalizeCampaign(campaignId);
         return;
       }
 
@@ -123,10 +139,6 @@ export const startConsumer = async (maxRetries: number): Promise<void> => {
 
     } catch (err: any) {
       logger.error(`Job ${jobId} failed`, { error: err.message });
-
-      const campaign = await Campaign.findById(campaignId);
-      const job = (campaign?.email_jobs as Record<string, EmailJob>)?.[jobId];
-      const retryCount = job?.retryCount ?? 0;
 
       if (retryCount < maxRetries) {
         const delayMs = 5 * 60 * 1000 * (retryCount + 1);
