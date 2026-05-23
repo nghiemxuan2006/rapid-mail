@@ -14,6 +14,8 @@ import {
   getCampaignById,
   updateCampaign,
 } from '../controllers/campaign.controller';
+import { sendCampaignBodySchema, campaignSendParamsSchema } from '../schema/send.schema';
+import { sendCampaign } from '../controllers/campaign-send.controller';
 
 const router = express.Router();
 
@@ -62,6 +64,13 @@ router.delete('/:id',
   verifyToken,
   validateRequestParams(campaignParamsSchema),
   deleteCampaignById
+);
+
+router.post('/:id/send',
+  verifyToken,
+  validateRequestParams(campaignSendParamsSchema),
+  validateRequestBody(sendCampaignBodySchema),
+  sendCampaign
 );
 
 export default router;
