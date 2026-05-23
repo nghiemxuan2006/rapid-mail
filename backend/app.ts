@@ -11,6 +11,7 @@ import compression from 'compression';
 import { errorHandler } from './middleware/error-handler';
 import { BAD_REQUEST_ERROR } from './utils/error';
 import connectMongoDB from './config/mongodb';
+import { connectRabbitMQ } from './services/rabbitmq.service';
 
 import routers from './routers'
 import http from 'http'
@@ -99,6 +100,10 @@ ensureStorageDir();
 
 // Connect to MongoDB
 connectMongoDB();
+
+connectRabbitMQ().catch((err) => {
+  logger.error('Failed to connect to RabbitMQ', { err });
+});
 
 server.listen(port, () => {
     logger.info(`Express is listening at http://localhost:${port}`);
