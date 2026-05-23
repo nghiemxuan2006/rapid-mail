@@ -71,3 +71,73 @@ export const sendCampaign = async (
     next(error);
   }
 };
+
+export const cancelCampaign = async (
+  req: Request<CampaignSendParams>,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const campaign = await Campaign.findById(req.params.id);
+    if (!campaign) throw new NOT_FOUND_ERROR('Campaign not found');
+    if (campaign.user_id.toString() !== req.user.sub) {
+      throw new UNAUTHORIZED_ERROR('No permission');
+    }
+    if (campaign.status !== 'sending') {
+      throw new BAD_REQUEST_ERROR('Only sending campaigns can be cancelled');
+    }
+
+    const jobs = campaign.email_jobs as Record<string, EmailJob>;
+    let cancelledCount = 0;
+
+    for (const jobId of Object.keys(jobs)) {
+      if (jobs[jobId].status === 'pending') {
+        jobs[jobId].status = 'cancelled';
+        jobs[jobId].updatedAt = new Date();
+        cancelledCount++;
+      }
+    }
+
+    campaign.email_jobs = jobs;
+    campaign.markModified('email_jobs');
+    await campaign.save();
+
+    res.json({ message: 'cancelled', cancelledCount });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getCampaignStatus = async (
+  req: Request<CampaignSendParams>,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const campaign = await Campaign.findById(req.params.id);
+    if (!campaign) throw new NOT_FOUND_ERROR('Campaign not found');
+    if (campaign.user_id.toString() !== req.user.sub) {
+      throw new UNAUTHORIZED_ERROR('No permission');
+    }
+
+    const jobs = campaign.email_jobs as Record<string, EmailJob>;
+    const jobValues = Object.values(jobs);
+
+    const summary = {
+      total: jobValues.length,
+      sent: jobValues.filter((j) => j.status === 'sent').length,
+      failed: jobValues.filter((j) => j.status === 'failed').length,
+      pending: jobValues.filter((j) => j.status === 'pending').length,
+      cancelled: jobValues.filter((j) => j.status === 'cancelled').length,
+    };
+
+    res.json({
+      status: campaign.status,
+      sendMode: campaign.sendMode,
+      summary,
+      jobs,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

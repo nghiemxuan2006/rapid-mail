@@ -15,7 +15,7 @@ import {
   updateCampaign,
 } from '../controllers/campaign.controller';
 import { sendCampaignBodySchema, campaignSendParamsSchema } from '../schema/send.schema';
-import { sendCampaign } from '../controllers/campaign-send.controller';
+import { sendCampaign, cancelCampaign, getCampaignStatus } from '../controllers/campaign-send.controller';
 
 const router = express.Router();
 
@@ -71,6 +71,18 @@ router.post('/:id/send',
   validateRequestParams(campaignSendParamsSchema),
   validateRequestBody(sendCampaignBodySchema),
   sendCampaign
+);
+
+router.post('/:id/cancel',
+  verifyToken,
+  validateRequestParams(campaignSendParamsSchema),
+  cancelCampaign
+);
+
+router.get('/:id/status',
+  verifyToken,
+  validateRequestParams(campaignSendParamsSchema),
+  getCampaignStatus
 );
 
 export default router;
