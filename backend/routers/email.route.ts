@@ -1,15 +1,12 @@
 import express from 'express';
-import { submitCampaignEmails } from '../controllers/email.controller';
-import { verifyToken } from '../middleware/verify-token';
-import { sendCampaignEmailsSchema } from '../schema/email.schema';
-import { validateRequestBody } from '../middleware/validation';
 
 const router = express.Router();
 
-router.post('/multiple',
-  verifyToken,
-  validateRequestBody(sendCampaignEmailsSchema),
-  submitCampaignEmails
-);
+// Deprecated: replaced by POST /v1/campaigns/:id/send
+router.post('/multiple', (_req, res) => {
+  res.status(410).json({
+    message: 'This endpoint is deprecated. Use POST /v1/campaigns/:id/send instead.',
+  });
+});
 
 export default router;
