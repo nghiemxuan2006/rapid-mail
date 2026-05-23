@@ -12,6 +12,7 @@ const settings = {
     ACCESS_TOKEN_EXPIRES_IN: process.env.ACCESS_TOKEN_EXPIRES_IN || '15m',
     REFRESH_TOKEN_EXPIRES_IN: process.env.REFRESH_TOKEN_EXPIRES_IN || '30d',
     FILE_STORAGE_PATH: process.env.FILE_STORAGE_PATH,
+    RABBITMQ_URL: process.env.RABBITMQ_URL || 'amqp://localhost:5672',
 }
 
 export default settings;

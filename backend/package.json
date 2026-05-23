@@ -7,7 +7,9 @@
     "start:prod": "tsx -r dotenv/config app.ts dotenv_config_path=.env.prod",
     "lint": "eslint . --ext .ts --ignore-pattern dist",
     "build": "tsc && node -r dotenv/config dist/app.js dotenv_config_path=.env",
-    "test": "tsx -r dotenv/config app.ts dotenv_config_path=.env.test"
+    "test": "tsx -r dotenv/config app.ts dotenv_config_path=.env.test",
+    "worker": "tsx -r dotenv/config worker/index.ts dotenv_config_path=.env",
+    "worker:prod": "tsx -r dotenv/config worker/index.ts dotenv_config_path=.env.prod"
   },
   "keywords": [],
   "author": "",
@@ -15,6 +17,7 @@
   "description": "",
   "dependencies": {
     "@types/jsonwebtoken": "^9.0.10",
+    "amqplib": "^2.0.1",
     "cheerio": "^1.2.0",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
@@ -30,12 +33,14 @@
     "multer": "^2.1.1",
     "socket.io": "^4.8.1",
     "typescript": "^5.9.2",
+    "uuid": "^14.0.0",
     "winston": "^3.17.0",
     "winston-daily-rotate-file": "^5.0.0",
     "zod": "^4.3.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.35.0",
+    "@types/amqplib": "^0.10.8",
     "@types/compression": "^1.8.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^4.17.1",
@@ -47,6 +52,7 @@
     "@types/socket.io": "^3.0.2",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.8",
+    "@types/uuid": "^10.0.0",
     "@types/winston": "^2.4.4",
     "eslint": "^9.35.0",
     "globals": "^16.4.0",
