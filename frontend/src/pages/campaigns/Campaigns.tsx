@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import EmailTemplate from '@/pages/email-template/EmailTemplate';
 import type { Campaign, CampaignCreateInput, CampaignUpdateInput } from '@/schema/campaign';
-import { useAppDispatch } from '@/app/hook';
-import { createCampaignApi, getCampaignsApi, updateCampaignApi, deleteCampaignByIdApi } from '@/features/campaign/campaignApi';
+import { useAppDispatch, useAppSelector } from '@/app/hook';
+import { createCampaignApi, getCampaignsApi, getCampaignByIdApi, updateCampaignApi, deleteCampaignByIdApi } from '@/features/campaign/campaignApi';
+import { addCampaign, updateCampaign as updateCampaignInStore, removeCampaign } from '@/features/campaign/campaignSlice';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,9 +42,10 @@ const Campaigns = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
+  const campaigns = useAppSelector((state) => state.campaign.list);
+  const campaignsLoaded = useAppSelector((state) => state.campaign.loaded);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [, setIsCreatingNew] = useState(false);
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -63,11 +65,11 @@ const Campaigns = () => {
   const isEditRoute = location.pathname.startsWith('/campaigns/') && !!id;
 
   useEffect(() => {
+    if (campaignsLoaded) return;
     const fetchCampaigns = async () => {
       setIsLoading(true);
       try {
-        const res = await dispatch(getCampaignsApi()).unwrap();
-        setCampaigns(res);
+        await dispatch(getCampaignsApi()).unwrap();
       } catch (error) {
         console.error('Failed to fetch campaigns:', error);
       } finally {
@@ -75,23 +77,24 @@ const Campaigns = () => {
       }
     };
     fetchCampaigns();
-  }, []);
+  }, [campaignsLoaded]);
 
   useEffect(() => {
     if (id && id === 'new') {
       setSelectedCampaign(null);
       setIsCreatingNew(true);
-    } else if (id && campaigns.length > 0) {
-      const campaign = campaigns.find(c => c._id === id);
-      if (campaign) {
-        setSelectedCampaign(campaign);
-        setIsCreatingNew(false);
-      }
-    } else if (!id) {
+    } else if (id) {
+      dispatch(getCampaignByIdApi({ id })).then((action) => {
+        if (getCampaignByIdApi.fulfilled.match(action)) {
+          setSelectedCampaign(action.payload);
+          setIsCreatingNew(false);
+        }
+      });
+    } else {
       setSelectedCampaign(null);
       setIsCreatingNew(false);
     }
-  }, [id, campaigns]);
+  }, [id]);
 
   const handleCreateCampaign = () => {
     navigate('/campaigns/new');
@@ -111,7 +114,7 @@ const Campaigns = () => {
   ) => {
     try {
       const res = await dispatch(createCampaignApi(newCampaign)).unwrap();
-      setCampaigns(prev => [res, ...prev]);
+      dispatch(addCampaign(res));
       if (options?.redirect !== false) {
         navigate('/campaigns');
       }
@@ -128,9 +131,7 @@ const Campaigns = () => {
   ) => {
     try {
       const res = await dispatch(updateCampaignApi(updatedCampaign)).unwrap();
-      setCampaigns(prev => prev.map(c =>
-        c._id === updatedCampaign._id ? res : c
-      ));
+      dispatch(updateCampaignInStore(res));
       if (options?.redirect !== false) {
         navigate('/campaigns');
       }
@@ -143,14 +144,17 @@ const Campaigns = () => {
 
   const handleDuplicateCampaign = async (campaign: Campaign) => {
     try {
+      const fullAction = await dispatch(getCampaignByIdApi({ id: campaign._id }));
+      if (!getCampaignByIdApi.fulfilled.match(fullAction)) return;
+      const full = fullAction.payload;
       const duplicatedCampaign: CampaignCreateInput = {
-        name: `${campaign.name} (Copy)`,
-        subject: campaign.subject,
-        content: campaign.content,
-        recipients: campaign.recipients
+        name: `${full.name} (Copy)`,
+        subject: full.subject,
+        content: full.content,
+        recipients: full.recipients,
       };
       const res = await dispatch(createCampaignApi(duplicatedCampaign)).unwrap();
-      setCampaigns([res, ...campaigns]);
+      dispatch(addCampaign(res));
     } catch (error) {
       console.error('Failed to duplicate campaign:', error);
     }
@@ -167,7 +171,7 @@ const Campaigns = () => {
     setIsActionLoading(true);
     try {
       await dispatch(deleteCampaignByIdApi({ id: selectedCampaignForAction._id })).unwrap();
-      setCampaigns(campaigns.filter(c => c._id !== selectedCampaignForAction._id));
+      dispatch(removeCampaign(selectedCampaignForAction._id));
       setShowDeleteModal(false);
       setSelectedCampaignForAction(null);
     } catch (error) {
@@ -189,9 +193,7 @@ const Campaigns = () => {
     try {
       const updatedCampaign = { ...selectedCampaignForAction, name: newName };
       await dispatch(updateCampaignApi(updatedCampaign)).unwrap();
-      setCampaigns(campaigns.map(c =>
-        c._id === selectedCampaignForAction._id ? updatedCampaign : c
-      ));
+      dispatch(updateCampaignInStore(updatedCampaign));
       setShowRenameModal(false);
       setSelectedCampaignForAction(null);
     } catch (error) {
@@ -355,7 +357,7 @@ const Campaigns = () => {
                     <TableCell>{campaign.recipients?.length ?? 0}</TableCell>
                     <TableCell>{campaign.createdAt}</TableCell>
                     <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                      {campaign.status === 'completed' ? (
+                      {campaign.status === 'completed' || campaign.status === 'sending' || campaign.status === 'failed' ? (
                         <button
                           onClick={() => {
                             setSelectedDeliveryCampaign(campaign);
@@ -467,7 +469,7 @@ const Campaigns = () => {
         <CampaignDetailsModal
           open={isDeliveryModalOpen}
           onOpenChange={setIsDeliveryModalOpen}
-          campaign={selectedDeliveryCampaign}
+          campaignId={selectedDeliveryCampaign._id}
         />
       )}
 

@@ -325,6 +325,7 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                 await dispatch(sendCampaignApi({ id: campaignId, sendMode: 'schedule_individual', scheduledTimes })).unwrap();
                 showNotifications('success', `Đã lên lịch cho ${schedules.length} người nhận`);
             }
+            onBack?.();
         } catch (err) {
             showNotifications('error', err instanceof Error ? err.message : 'Failed to send emails');
         } finally {
@@ -738,7 +739,7 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                 <CampaignDetailsModal
                     open={isDeliveryModalOpen}
                     onOpenChange={setIsDeliveryModalOpen}
-                    campaign={campaignMeta}
+                    campaignId={campaignMeta!._id}
                 />
             )}
         </div>

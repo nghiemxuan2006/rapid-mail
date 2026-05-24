@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { BaseModal } from '@/components/ui/base-modal';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,11 +16,13 @@ import { CheckCircle2, XCircle, Clock, RefreshCw, Eye, Search } from 'lucide-rea
 import type { Campaign, RecipientDeliveryStatus, RecipientStatus, FailureReason } from '@/schema/campaign';
 import { DeliveryDetailsModal } from '@/components/DeliveryDetailsModal';
 import { ResendConfirmModal } from '@/components/ResendConfirmModal';
+import { getCampaignByIdApi } from '@/features/campaign/campaignApi';
+import { useAppDispatch } from '@/app/hook';
 
 interface CampaignDetailsModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    campaign: Campaign;
+    campaignId: string;
 }
 
 function parseFailureReason(error: string | null): FailureReason {
@@ -63,7 +65,9 @@ const FAILURE_REASON_LABELS: Record<string, string> = {
     other: 'Other',
 };
 
-export function CampaignDetailsModal({ open, onOpenChange, campaign }: CampaignDetailsModalProps) {
+export function CampaignDetailsModal({ open, onOpenChange, campaignId }: CampaignDetailsModalProps) {
+    const dispatch = useAppDispatch();
+    const [campaign, setCampaign] = useState<Campaign | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | RecipientStatus>('all');
     const [selectedRecipient, setSelectedRecipient] = useState<RecipientDeliveryStatus | null>(null);
@@ -71,8 +75,17 @@ export function CampaignDetailsModal({ open, onOpenChange, campaign }: CampaignD
     const [isResendModalOpen, setIsResendModalOpen] = useState(false);
     const [recipientsToResend, setRecipientsToResend] = useState<RecipientDeliveryStatus[]>([]);
 
+    useEffect(() => {
+        if (!open) return;
+        dispatch(getCampaignByIdApi({ id: campaignId })).then((action) => {
+            if (getCampaignByIdApi.fulfilled.match(action)) {
+                setCampaign(action.payload);
+            }
+        });
+    }, [open, campaignId]);
+
     const deliveryRecipients = useMemo<RecipientDeliveryStatus[]>(() => {
-        return Object.entries(campaign.email_jobs ?? {}).map(([key, job]) => {
+        return Object.entries(campaign?.email_jobs ?? {}).map(([key, job]) => {
             const status: RecipientStatus =
                 job.status === 'sent' ? 'success' : job.status === 'failed' ? 'failed' : 'pending';
             return {
@@ -85,7 +98,7 @@ export function CampaignDetailsModal({ open, onOpenChange, campaign }: CampaignD
                 recipientData: job.recipientData,
             };
         });
-    }, [campaign.email_jobs]);
+    }, [campaign?.email_jobs]);
 
     const stats = useMemo(() => {
         const success = deliveryRecipients.filter((r) => r.status === 'success').length;
@@ -109,13 +122,13 @@ export function CampaignDetailsModal({ open, onOpenChange, campaign }: CampaignD
 
     const campaignAttachments = useMemo(
         () =>
-            (campaign.attachments ?? []).map((att) => ({
+            (campaign?.attachments ?? []).map((att) => ({
                 id: att.storedName,
                 name: att.filename,
                 size: att.size,
                 type: att.mimeType,
             })),
-        [campaign.attachments],
+        [campaign?.attachments],
     );
 
     const filteredRecipients = deliveryRecipients.filter((r) => {
@@ -143,7 +156,7 @@ export function CampaignDetailsModal({ open, onOpenChange, campaign }: CampaignD
         <>
             <BaseModal open={open} onOpenChange={onOpenChange} size="6xl">
                 <DialogHeader className="px-6 pt-6 pb-4 border-b">
-                    <DialogTitle className="text-2xl">{campaign.name}</DialogTitle>
+                    <DialogTitle className="text-2xl">{campaign?.name}</DialogTitle>
                     {campaignSentAt && (
                         <p className="text-sm text-muted-foreground mt-1">
                             Sent on {campaignSentAt.toLocaleDateString()} at{' '}
@@ -313,9 +326,9 @@ export function CampaignDetailsModal({ open, onOpenChange, campaign }: CampaignD
                     onOpenChange={setIsDetailsModalOpen}
                     recipient={selectedRecipient}
                     onResend={() => handleResendSingle(selectedRecipient)}
-                    subject={campaign.subject}
-                    content={campaign.content}
-                    signature={campaign.signature}
+                    subject={campaign?.subject}
+                    content={campaign?.content}
+                    signature={campaign?.signature}
                     attachments={campaignAttachments}
                 />
             )}

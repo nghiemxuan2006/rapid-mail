@@ -30,7 +30,9 @@ export const createCampaign = async (
 
 export const getAllCampaigns = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const campaigns = await Campaign.find({ user_id: req.user.sub }).sort({ createdAt: -1 });
+    const campaigns = await Campaign.find({ user_id: req.user.sub })
+      .select('name status recipients createdAt')
+      .sort({ createdAt: -1 });
     res.json({ message: 'Campaigns retrieved successfully', data: campaigns });
   } catch (error) {
     next(error);
