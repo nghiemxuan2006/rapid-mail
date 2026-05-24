@@ -101,6 +101,7 @@ export interface Campaign {
     email_jobs?: Record<string, EmailJob>;
     recipients: Recipient[];
     attachments?: Attachment[];
+    signature?: string;
     createdAt: string;
     updatedAt: string;
 }
