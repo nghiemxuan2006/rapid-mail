@@ -29,6 +29,7 @@ export const sendCampaign = async (
     const { sendMode } = req.body;
     const now = new Date();
     const emailJobs: Record<string, EmailJob> = {};
+    const jobPublishQueue: Array<{ jobId: string; delayMs: number }> = [];
 
     for (const recipient of campaign.recipients) {
       const jobId = uuidv4();
@@ -60,7 +61,7 @@ export const sendCampaign = async (
       };
 
       const delayMs = Math.max(0, scheduledAt.getTime() - now.getTime());
-      publishEmailJob(campaign._id.toString(), jobId, delayMs);
+      jobPublishQueue.push({ jobId, delayMs });
     }
 
     const user = await User.findById(campaign.user_id);
@@ -80,6 +81,10 @@ export const sendCampaign = async (
     const snapshotSignature = matchedSignature?.content ?? '';
 
     writeCampaignConfig(campaign._id.toString(), { signature: snapshotSignature });
+
+    for (const { jobId, delayMs } of jobPublishQueue) {
+      publishEmailJob(campaign._id.toString(), jobId, delayMs);
+    }
 
     campaign.email_jobs = emailJobs;
     campaign.status = 'sending';
