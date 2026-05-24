@@ -4,6 +4,9 @@ import Campaign, { EmailJob } from '../models/campaign.model';
 import { publishEmailJob } from '../services/rabbitmq.service';
 import { SendCampaignBody, CampaignSendParams } from '../schema/send.schema';
 import { BAD_REQUEST_ERROR, NOT_FOUND_ERROR, UNAUTHORIZED_ERROR } from '../utils/error';
+import User from '../models/user.model';
+import Signature from '../models/signature.model';
+import { writeCampaignConfig } from '../services/file-storage.service';
 
 export const sendCampaign = async (
   req: Request<CampaignSendParams, {}, SendCampaignBody>,
@@ -59,6 +62,24 @@ export const sendCampaign = async (
       const delayMs = Math.max(0, scheduledAt.getTime() - now.getTime());
       publishEmailJob(campaign._id.toString(), jobId, delayMs);
     }
+
+    const user = await User.findById(campaign.user_id);
+    if (!user) throw new NOT_FOUND_ERROR('User not found');
+
+    const activeAccount = user.activeAccountId
+      ? (user.connectedAccounts || []).find(
+          (acc: any) => acc._id.toString() === String(user.activeAccountId)
+        )
+      : null;
+    const senderEmail = activeAccount?.email || user.email;
+
+    const matchedSignature = await Signature.findOne({
+      userId: campaign.user_id,
+      sourceEmail: senderEmail,
+    }).lean();
+    const snapshotSignature = matchedSignature?.content ?? '';
+
+    writeCampaignConfig(campaign._id.toString(), { signature: snapshotSignature });
 
     campaign.email_jobs = emailJobs;
     campaign.status = 'sending';
