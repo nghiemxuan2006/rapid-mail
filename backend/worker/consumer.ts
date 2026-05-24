@@ -1,8 +1,7 @@
 import Campaign, { EmailJob } from '../models/campaign.model';
 import { createConsumeChannel, getQueueName, publishEmailJob } from '../services/rabbitmq.service';
 import { sendEmail } from '../services/email.service';
-import { readFile } from '../services/file-storage.service';
-import Signature from '../models/signature.model';
+import { readCampaignConfig, readFile } from '../services/file-storage.service';
 import User from '../models/user.model';
 import logger from '../utils/wiston-log';
 import { Recipient } from '../schema/common.schema';
@@ -102,17 +101,8 @@ export const startConsumer = async (maxRetries: number): Promise<void> => {
       const user = await User.findById(campaign.user_id);
       if (!user) throw new Error(`User not found for campaign ${campaignId}`);
 
-      const activeAccount = user.activeAccountId
-        ? (user.connectedAccounts || []).find(
-            (acc: any) => acc._id.toString() === String(user.activeAccountId)
-          )
-        : null;
-      const senderEmail = activeAccount?.email || user.email;
-
-      const matchedSignature =
-        await Signature.findOne({ userId: campaign.user_id, sourceEmail: senderEmail }).lean() ??
-        await Signature.findOne({ userId: campaign.user_id, isDefault: true }).lean();
-      const signature = matchedSignature?.content || '';
+      const config = readCampaignConfig(campaignId);
+      const signature = config?.signature ?? '';
 
       const personalizedContent = processContent(campaign.content, job.recipientData as Recipient);
 
