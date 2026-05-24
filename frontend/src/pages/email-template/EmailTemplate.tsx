@@ -7,9 +7,8 @@ import ScheduleModal from '@/components/email-template/ScheduleModal';
 import { ContactsIcon, ArrowLeftIcon, EyeIcon, CalendarIcon, FloppyDiskIcon, PaperclipIcon, PlusIcon, InfoIcon } from '@/assets/icons';
 import { sendCampaignApi } from '@/features/campaign/campaignApi';
 import type { SendMethod, RecipientSchedule } from '@/components/email-template/SendScheduleModal';
-import { getDefaultSignatureApi } from '@/features/signature/signatureApi';
 import { showNotifications } from '@/utils';
-import { useAppDispatch, useAppSelector } from '@/app/hook';
+import { useAppDispatch } from '@/app/hook';
 import { type Campaign, type CampaignCreateInput, type CampaignUpdateInput, type Recipient, campaignSaveSchema } from '@/schema/campaign';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -82,7 +81,6 @@ interface EmailTemplateProps {
 
 const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplateProps) => {
     const dispatch = useAppDispatch();
-    const activeAccountId = useAppSelector((state) => state.auth?.user?.activeAccountId) ?? undefined;
     const mailEditorRef = useRef<MailEditorRef>(null);
 
     // UI state
@@ -109,17 +107,6 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
     const filledRecipients = recipients.filter(recipient =>
         fields.some(field => (recipient[field.name] || '').trim() !== '')
     );
-
-    // Signature
-    const [defaultSignature, setDefaultSignature] = useState<string | undefined>();
-
-    useEffect(() => {
-        dispatch(getDefaultSignatureApi(activeAccountId)).then((action) => {
-            if (getDefaultSignatureApi.fulfilled.match(action)) {
-                setDefaultSignature(action.payload?.content ?? undefined);
-            }
-        });
-    }, [dispatch, activeAccountId]);
 
     // Delivery modal
     const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
@@ -678,7 +665,7 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                 onPreviewIndexChange={setPreviewIndex}
                 onSend={(!campaignMeta?.status || campaignMeta.status === 'draft') ? onSendEmails : undefined}
                 isSending={isSendingEmails}
-                signature={defaultSignature}
+                signature={campaignMeta?.signature}
             />
 
             {/* Personalization Modal */}
