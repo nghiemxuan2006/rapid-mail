@@ -47,6 +47,9 @@ export const getCampaignById = async (
     if (!campaign) {
       throw new NOT_FOUND_ERROR('Campaign not found');
     }
+    if (campaign.user_id.toString() !== req.user.sub) {
+      throw new NOT_FOUND_ERROR('Campaign not found');
+    }
 
     let signature = '';
 
