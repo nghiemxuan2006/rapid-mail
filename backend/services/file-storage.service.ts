@@ -56,3 +56,22 @@ export const deleteSingleFile = (campaignId: string, storedName: string) => {
         fs.unlinkSync(filePath);
     }
 };
+
+const buildConfigPath = (campaignId: string) =>
+    path.join(ATTACHMENTS_DIR, campaignId, 'config.json');
+
+export const writeCampaignConfig = (campaignId: string, config: { signature: string }): void => {
+    const campaignDir = buildCampaignDir(campaignId);
+    fs.mkdirSync(campaignDir, { recursive: true });
+    fs.writeFileSync(buildConfigPath(campaignId), JSON.stringify(config), 'utf-8');
+};
+
+export const readCampaignConfig = (campaignId: string): { signature: string } | null => {
+    const configPath = buildConfigPath(campaignId);
+    if (!fs.existsSync(configPath)) return null;
+    try {
+        return JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { signature: string };
+    } catch {
+        return null;
+    }
+};
