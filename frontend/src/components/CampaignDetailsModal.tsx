@@ -315,6 +315,7 @@ export function CampaignDetailsModal({ open, onOpenChange, campaign }: CampaignD
                     onResend={() => handleResendSingle(selectedRecipient)}
                     subject={campaign.subject}
                     content={campaign.content}
+                    signature={campaign.signature}
                     attachments={campaignAttachments}
                 />
             )}
