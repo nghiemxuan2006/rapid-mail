@@ -4,6 +4,12 @@ export type RecipientStatus = 'success' | 'failed' | 'pending';
 
 export type FailureReason = 'invalid_email' | 'smtp_error' | 'bounced' | 'rate_limit' | 'blocked' | 'other';
 
+export interface RetryAttempt {
+    status: RecipientStatus;
+    attemptedAt: Date;
+    reason?: string;
+}
+
 export interface RecipientDeliveryStatus {
     id: string;
     email: string;
@@ -12,6 +18,8 @@ export interface RecipientDeliveryStatus {
     failureReason?: FailureReason;
     errorMessage?: string;
     serverResponse?: string;
+    retryHistory?: RetryAttempt[];
+    recipientData?: Record<string, string>;
 }
 
 export interface CampaignStats {
@@ -23,6 +31,18 @@ export interface CampaignStats {
     failureBreakdown: Record<FailureReason, number>;
 }
 
+export interface DeliveryAttachment {
+    id: string;
+    name: string;
+    size: number;
+    type: string;
+}
+
+export interface CustomColumn {
+    id: string;
+    name: string;
+}
+
 export interface CampaignDeliveryDetails {
     id: string;
     name: string;
@@ -32,6 +52,9 @@ export interface CampaignDeliveryDetails {
     status: string;
     stats: CampaignStats;
     deliveryRecipients: RecipientDeliveryStatus[];
+    signature?: string;
+    attachments?: DeliveryAttachment[];
+    customColumns?: CustomColumn[];
 }
 
 export interface SentCampaignSummary {
@@ -56,12 +79,26 @@ export interface Attachment {
     size: number;
 }
 
+export type CampaignStatus = 'draft' | 'sending' | 'completed' | 'failed';
+export type SendMode = 'now' | 'schedule_all' | 'schedule_individual';
+
+export interface EmailJob {
+    recipientData: Record<string, string>;
+    status: 'pending' | 'sent' | 'failed' | 'cancelled';
+    scheduledAt: string;
+    sentAt: string | null;
+    error: string | null;
+    retryCount: number;
+}
+
 export interface Campaign {
     _id: string;
     name: string;
     subject: string;
     content: string;
-    status?: 'draft' | 'sent' | 'scheduled';
+    status?: CampaignStatus;
+    sendMode?: SendMode | null;
+    email_jobs?: Record<string, EmailJob>;
     recipients: Recipient[];
     attachments?: Attachment[];
     createdAt: string;

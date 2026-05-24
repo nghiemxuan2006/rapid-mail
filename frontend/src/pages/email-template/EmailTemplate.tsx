@@ -5,7 +5,8 @@ import RecipientsModal from '@/components/email-template/RecipientsModal';
 import { PersonalizationModal } from '@/components/email-template/PersonalizationModal';
 import ScheduleModal from '@/components/email-template/ScheduleModal';
 import { ContactsIcon, ArrowLeftIcon, EyeIcon, CalendarIcon, FloppyDiskIcon, PaperclipIcon, PlusIcon, InfoIcon } from '@/assets/icons';
-import { sendMultipleEmailsApi } from '@/features/email/emailApi';
+import { sendCampaignApi } from '@/features/campaign/campaignApi';
+import type { SendMethod, RecipientSchedule } from '@/components/email-template/SendScheduleModal';
 import { getDefaultSignatureApi } from '@/features/signature/signatureApi';
 import { showNotifications } from '@/utils';
 import { useAppDispatch, useAppSelector } from '@/app/hook';
@@ -28,7 +29,6 @@ import {
 } from '@/components/ui/tooltip';
 import { FileText, Image as ImageIcon, File as FileIcon, X, BarChart3 } from 'lucide-react';
 import { CampaignDetailsModal } from '@/components/CampaignDetailsModal';
-import type { CampaignDeliveryDetails } from '@/schema/campaign';
 
 export interface FileAttachment {
     id: string;
@@ -309,7 +309,7 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
         setIsAddVariableOpen(false);
     };
 
-    const onSendEmails = async () => {
+    const onSendEmails = async (method: SendMethod, schedules?: RecipientSchedule[]) => {
         if (isSendingEmailsRef.current) return;
 
         isSendingEmailsRef.current = true;
@@ -324,8 +324,20 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                 return;
             }
 
-            await dispatch(sendMultipleEmailsApi({ campaignId })).unwrap();
-            showNotifications('success', 'Sent emails successfully to all recipients');
+            if (method === 'now') {
+                await dispatch(sendCampaignApi({ id: campaignId, sendMode: 'now' })).unwrap();
+                showNotifications('success', 'Đang gửi chiến dịch đến tất cả người nhận...');
+            } else if (method === 'schedule-all' && schedules?.length) {
+                const scheduledAt = schedules[0].scheduledDate.toISOString();
+                await dispatch(sendCampaignApi({ id: campaignId, sendMode: 'schedule_all', scheduledAt })).unwrap();
+                const d = schedules[0].scheduledDate;
+                showNotifications('success', `Đã lên lịch gửi vào ${d.toLocaleDateString('vi-VN')} lúc ${d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`);
+            } else if (method === 'schedule-individual' && schedules?.length) {
+                const scheduledTimes: Record<string, string> = {};
+                schedules.forEach((s) => { scheduledTimes[s.recipientId] = s.scheduledDate.toISOString(); });
+                await dispatch(sendCampaignApi({ id: campaignId, sendMode: 'schedule_individual', scheduledTimes })).unwrap();
+                showNotifications('success', `Đã lên lịch cho ${schedules.length} người nhận`);
+            }
         } catch (err) {
             showNotifications('error', err instanceof Error ? err.message : 'Failed to send emails');
         } finally {
@@ -409,6 +421,14 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
         await persistCampaign();
     }
 
+    const isReadOnly = !!campaignMeta?.status && campaignMeta.status !== 'draft';
+
+    const readOnlyLabel: Record<string, string> = {
+        sending: 'Đang gửi',
+        completed: 'Đã gửi',
+        failed: 'Gửi thất bại',
+    };
+
     return (
         <div className="min-h-screen bg-background">
             {/* Top Bar */}
@@ -423,14 +443,15 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                             )}
                             <Input
                                 value={campaignName}
-                                onChange={(e) => setCampaignName(e.target.value)}
-                                className="text-lg md:text-xl font-semibold focus-visible:ring-2 max-w-md"
+                                onChange={(e) => !isReadOnly && setCampaignName(e.target.value)}
+                                readOnly={isReadOnly}
+                                className={`text-lg md:text-xl font-semibold focus-visible:ring-2 max-w-md ${isReadOnly ? 'cursor-default focus-visible:ring-0 text-muted-foreground' : ''}`}
                                 placeholder="Tên chiến dịch"
                             />
                         </div>
 
                         <div className="flex items-center gap-2">
-                            {campaignMeta?.status === 'sent' && (
+                            {campaignMeta?.status === 'completed' && (
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -451,36 +472,50 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                                 Preview
                             </Button>
 
-                            <Button variant="outline" size="sm" onClick={() => setIsScheduleModalOpen(true)}>
-                                <CalendarIcon className="size-4 mr-2" />
-                                Schedule
-                            </Button>
+                            {!isReadOnly && (
+                                <Button variant="outline" size="sm" onClick={() => setIsScheduleModalOpen(true)}>
+                                    <CalendarIcon className="size-4 mr-2" />
+                                    Schedule
+                                </Button>
+                            )}
 
-                            {(onCreate || onUpdate) && (
+                            {(onCreate || onUpdate) && !isReadOnly && (
                                 <Button variant="outline" size="sm" onClick={handleSaveCampaign}>
                                     <FloppyDiskIcon className="size-4 mr-2" />
                                     Save
                                 </Button>
                             )}
 
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setIsRecipientsModalOpen(true)}
-                            >
-                                <ContactsIcon className="size-4 mr-2" />
-                                Recipients ({filledRecipients.length})
-                            </Button>
+                            {!isReadOnly && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setIsRecipientsModalOpen(true)}
+                                >
+                                    <ContactsIcon className="size-4 mr-2" />
+                                    Recipients ({filledRecipients.length})
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </div>
             </div>
 
+            {/* Read-only banner */}
+            {isReadOnly && (
+                <div className="bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800">
+                    <div className="max-w-350 mx-auto px-6 py-3 flex items-center gap-2 text-sm text-amber-800 dark:text-amber-300">
+                        <span className="font-medium">Chiến dịch đang ở trạng thái "{readOnlyLabel[campaignMeta!.status!]}"</span>
+                        <span className="text-amber-600 dark:text-amber-400">— Không thể chỉnh sửa.</span>
+                    </div>
+                </div>
+            )}
+
             {/* Main Content */}
             <TooltipProvider>
                 <div className="max-w-350 w-full mx-auto px-6 py-8">
                     <div className="bg-card rounded-lg shadow-sm border p-8 space-y-6">
-                        {filledRecipients.length === 0 && (
+                        {!isReadOnly && filledRecipients.length === 0 && (
                             <div className="bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900 rounded-lg p-4">
                                 <p className="text-sm text-amber-800 dark:text-amber-200">
                                     Bạn chưa có người nhận nào. Hãy click vào nút <strong>Recipients</strong> ở góc trên bên phải để thêm người nhận.
@@ -493,9 +528,10 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                             <Input
                                 id="subject"
                                 value={campaignSubject}
-                                onChange={(e) => setCampaignSubject(e.target.value)}
+                                onChange={(e) => !isReadOnly && setCampaignSubject(e.target.value)}
+                                readOnly={isReadOnly}
                                 placeholder="Nhập tiêu đề email của bạn..."
-                                className="text-lg"
+                                className={`text-lg ${isReadOnly ? 'cursor-default focus-visible:ring-0 text-muted-foreground' : ''}`}
                             />
                         </div>
 
@@ -528,45 +564,47 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                             </div>
 
                             {/* Variable insertion & attachment buttons */}
-                            <div className="flex items-center justify-between gap-3">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setIsPersonalizationOpen(true)}
-                                >
-                                    <PlusIcon className="size-4 mr-2" />
-                                    Add personalization
-                                </Button>
-                                <div className="relative">
-                                    <input
-                                        type="file"
-                                        multiple
-                                        ref={fileInputRef}
-                                        className="hidden"
-                                        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.webp,.txt,.zip"
-                                        onChange={(e) => handleFileSelect(e.target.files)}
-                                    />
+                            {!isReadOnly && (
+                                <div className="flex items-center justify-between gap-3">
                                     <Button
                                         type="button"
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className="relative"
+                                        onClick={() => setIsPersonalizationOpen(true)}
                                     >
-                                        <PaperclipIcon className="size-4 mr-2" />
-                                        Đính kèm
-                                        {attachments.length > 0 && (
-                                            <span className="absolute -top-1.5 -right-1.5 size-5 flex items-center justify-center text-xs font-semibold bg-primary text-primary-foreground rounded-full">
-                                                {attachments.length}
-                                            </span>
-                                        )}
+                                        <PlusIcon className="size-4 mr-2" />
+                                        Add personalization
                                     </Button>
+                                    <div className="relative">
+                                        <input
+                                            type="file"
+                                            multiple
+                                            ref={fileInputRef}
+                                            className="hidden"
+                                            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.webp,.txt,.zip"
+                                            onChange={(e) => handleFileSelect(e.target.files)}
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="relative"
+                                        >
+                                            <PaperclipIcon className="size-4 mr-2" />
+                                            Đính kèm
+                                            {attachments.length > 0 && (
+                                                <span className="absolute -top-1.5 -right-1.5 size-5 flex items-center justify-center text-xs font-semibold bg-primary text-primary-foreground rounded-full">
+                                                    {attachments.length}
+                                                </span>
+                                            )}
+                                        </Button>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             {/* Editor */}
-                            <div className="border rounded-md overflow-hidden bg-white dark:bg-background">
+                            <div className={`border rounded-md overflow-hidden bg-white dark:bg-background ${isReadOnly ? 'pointer-events-none select-none opacity-75' : ''}`}>
                                 <MailEditor
                                     ref={mailEditorRef}
                                     content={content}
@@ -605,15 +643,17 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                                                             {formatFileSize(attachment.size)}
                                                         </p>
                                                     </div>
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="size-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                        onClick={() => handleRemoveAttachment(attachment.id)}
-                                                    >
-                                                        <X className="size-4 text-destructive" />
-                                                    </Button>
+                                                    {!isReadOnly && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="size-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            onClick={() => handleRemoveAttachment(attachment.id)}
+                                                        >
+                                                            <X className="size-4 text-destructive" />
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             );
                                         })}
@@ -636,7 +676,7 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                 attachments={attachments}
                 previewIndex={previewIndex}
                 onPreviewIndexChange={setPreviewIndex}
-                onSend={onSendEmails}
+                onSend={(!campaignMeta?.status || campaignMeta.status === 'draft') ? onSendEmails : undefined}
                 isSending={isSendingEmails}
                 signature={defaultSignature}
             />
@@ -707,20 +747,11 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
             />
 
             {/* Delivery Overview Modal */}
-            {campaignMeta?.status === 'sent' && (
+            {campaignMeta?.status === 'completed' && (
                 <CampaignDetailsModal
                     open={isDeliveryModalOpen}
                     onOpenChange={setIsDeliveryModalOpen}
-                    campaign={{
-                        id: campaignMeta._id,
-                        name: campaignMeta.name,
-                        subject: campaignMeta.subject,
-                        content: campaignMeta.content,
-                        status: campaignMeta.status,
-                        // TODO: populate from API
-                        stats: { total: 0, success: 0, failed: 0, pending: 0, successRate: 0, failureBreakdown: { invalid_email: 0, smtp_error: 0, bounced: 0, rate_limit: 0, blocked: 0, other: 0 } },
-                        deliveryRecipients: [],
-                    } satisfies CampaignDeliveryDetails}
+                    campaign={campaignMeta}
                 />
             )}
         </div>

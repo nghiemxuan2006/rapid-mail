@@ -33,7 +33,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Plus, Search, MoreVertical, FileText, Calendar, Send, Edit, Eye } from 'lucide-react';
 import { CampaignDetailsModal } from '@/components/CampaignDetailsModal';
-import type { CampaignDeliveryDetails } from '@/schema/campaign';
 import ConfirmModal from '@/components/ConfirmModal';
 import RenameModal from '@/components/RenameModal';
 
@@ -52,7 +51,7 @@ const Campaigns = () => {
 
   // Delivery modal
   const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
-  const [selectedDeliveryCampaign, setSelectedDeliveryCampaign] = useState<CampaignDeliveryDetails | null>(null);
+  const [selectedDeliveryCampaign, setSelectedDeliveryCampaign] = useState<Campaign | null>(null);
 
   // Modal states
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -216,17 +215,19 @@ const Campaigns = () => {
   // Calculate statistics
   const stats = {
     total: campaigns.length,
-    scheduled: campaigns.filter((c) => c.status === 'scheduled').length,
-    sent: campaigns.filter((c) => c.status === 'sent').length,
+    scheduled: campaigns.filter((c) => c.status === 'sending').length,
+    sent: campaigns.filter((c) => c.status === 'completed').length,
     drafts: campaigns.filter((c) => !c.status || c.status === 'draft').length,
   };
 
   const getStatusBadge = (status?: string) => {
     switch (status) {
-      case 'sent':
+      case 'completed':
         return <Badge className="bg-green-600 hover:bg-green-600 dark:bg-green-700">Sent</Badge>;
-      case 'scheduled':
-        return <Badge className="bg-blue-600 hover:bg-blue-600 dark:bg-blue-700">Scheduled</Badge>;
+      case 'sending':
+        return <Badge className="bg-blue-600 hover:bg-blue-600 dark:bg-blue-700">Sending</Badge>;
+      case 'failed':
+        return <Badge className="bg-red-600 hover:bg-red-600 dark:bg-red-700">Failed</Badge>;
       default:
         return <Badge variant="secondary">Draft</Badge>;
     }
@@ -354,19 +355,10 @@ const Campaigns = () => {
                     <TableCell>{campaign.recipients?.length ?? 0}</TableCell>
                     <TableCell>{campaign.createdAt}</TableCell>
                     <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                      {campaign.status === 'sent' ? (
+                      {campaign.status === 'completed' ? (
                         <button
                           onClick={() => {
-                            setSelectedDeliveryCampaign({
-                              id: campaign._id,
-                              name: campaign.name,
-                              subject: campaign.subject,
-                              content: campaign.content,
-                              status: campaign.status,
-                              // TODO: populate from API
-                              stats: { total: 0, success: 0, failed: 0, pending: 0, successRate: 0, failureBreakdown: { invalid_email: 0, smtp_error: 0, bounced: 0, rate_limit: 0, blocked: 0, other: 0 } },
-                              deliveryRecipients: [],
-                            });
+                            setSelectedDeliveryCampaign(campaign);
                             setIsDeliveryModalOpen(true);
                           }}
                           className="inline-flex items-center gap-1 text-sm text-[#9d7d59] hover:text-[#8b6d49] transition-colors"

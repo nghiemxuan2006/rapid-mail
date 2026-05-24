@@ -17,9 +17,9 @@ import {
 import { format, addDays, addHours } from 'date-fns';
 import type { Recipient } from '@/schema/campaign';
 
-type SendMethod = 'now' | 'schedule-all' | 'schedule-individual';
+export type SendMethod = 'now' | 'schedule-all' | 'schedule-individual';
 
-interface RecipientSchedule {
+export interface RecipientSchedule {
     recipientId: string;
     scheduledDate: Date;
 }
@@ -230,7 +230,7 @@ const SendScheduleModal = ({ open, onOpenChange, recipients, onConfirm }: SendSc
                         </div>
                     </div>
                     <div className="border rounded-lg max-h-96 overflow-auto">
-                        <table className="w-full min-w-[500px]">
+                        <table className="w-full min-w-125">
                             <thead className="border-b bg-muted/50 sticky top-0 z-10">
                                 <tr>
                                     <th className="p-3 text-left text-sm font-medium w-[45%]">Người nhận</th>
@@ -242,7 +242,7 @@ const SendScheduleModal = ({ open, onOpenChange, recipients, onConfirm }: SendSc
                                     const schedule = recipientSchedules.find((s) => s.recipientId === r.id);
                                     return (
                                         <tr key={r.id} className="border-b last:border-0">
-                                            <td className="p-3 text-sm truncate max-w-[200px]">{r.Email}</td>
+                                            <td className="p-3 text-sm truncate max-w-50">{r.Email}</td>
                                             <td className="p-3">
                                                 <div className="flex gap-2">
                                                     <Input

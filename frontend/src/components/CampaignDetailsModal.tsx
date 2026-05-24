@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { BaseModal } from '@/components/ui/base-modal';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,30 +13,25 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { CheckCircle2, XCircle, Clock, RefreshCw, Eye, Search } from 'lucide-react';
-import type {
-    CampaignDeliveryDetails,
-    RecipientDeliveryStatus,
-    RecipientStatus,
-    FailureReason,
-} from '@/schema/campaign';
+import type { Campaign, RecipientDeliveryStatus, RecipientStatus, FailureReason } from '@/schema/campaign';
+import { DeliveryDetailsModal } from '@/components/DeliveryDetailsModal';
+import { ResendConfirmModal } from '@/components/ResendConfirmModal';
 
 interface CampaignDetailsModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    campaign: CampaignDeliveryDetails;
+    campaign: Campaign;
 }
 
-const FAILURE_REASON_LABELS: Record<string, string> = {
-    invalid_email: 'Invalid Email',
-    smtp_error: 'SMTP Error',
-    bounced: 'Bounced',
-    rate_limit: 'Rate Limit',
-    blocked: 'Blocked',
-    other: 'Other',
-};
-
-function getFailureReasonText(reason?: string) {
-    return reason ? (FAILURE_REASON_LABELS[reason] ?? reason) : '-';
+function parseFailureReason(error: string | null): FailureReason {
+    if (!error) return 'other';
+    const e = error.toLowerCase();
+    if (e.includes('invalid') || e.includes('format')) return 'invalid_email';
+    if (e.includes('smtp') || e.includes('connection')) return 'smtp_error';
+    if (e.includes('bounce') || e.includes('mailbox')) return 'bounced';
+    if (e.includes('rate') || e.includes('limit')) return 'rate_limit';
+    if (e.includes('block')) return 'blocked';
+    return 'other';
 }
 
 function StatusIcon({ status }: { status: RecipientStatus }) {
@@ -52,144 +47,165 @@ function StatusBadge({ status }: { status: RecipientStatus }) {
         pending: 'bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400',
     };
     return (
-        <Badge className={`${variants[status]} border-0 gap-1`}>
+        <Badge className={`${variants[status]} border-0`}>
             <StatusIcon status={status} />
-            <span className="capitalize">{status}</span>
+            <span className="ml-1 capitalize">{status}</span>
         </Badge>
     );
 }
 
-type Tab = 'overview' | 'recipients' | 'content';
+const FAILURE_REASON_LABELS: Record<string, string> = {
+    invalid_email: 'Invalid Email',
+    smtp_error: 'SMTP Error',
+    bounced: 'Bounced',
+    rate_limit: 'Rate Limit',
+    blocked: 'Blocked',
+    other: 'Other',
+};
 
 export function CampaignDetailsModal({ open, onOpenChange, campaign }: CampaignDetailsModalProps) {
-    const [activeTab, setActiveTab] = useState<Tab>('overview');
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | RecipientStatus>('all');
+    const [selectedRecipient, setSelectedRecipient] = useState<RecipientDeliveryStatus | null>(null);
+    const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+    const [isResendModalOpen, setIsResendModalOpen] = useState(false);
+    const [recipientsToResend, setRecipientsToResend] = useState<RecipientDeliveryStatus[]>([]);
 
-    const filteredRecipients = campaign.deliveryRecipients.filter((r) => {
+    const deliveryRecipients = useMemo<RecipientDeliveryStatus[]>(() => {
+        return Object.entries(campaign.email_jobs ?? {}).map(([key, job]) => {
+            const status: RecipientStatus =
+                job.status === 'sent' ? 'success' : job.status === 'failed' ? 'failed' : 'pending';
+            return {
+                id: key,
+                email: job.recipientData?.Email ?? '',
+                status,
+                sentAt: job.sentAt ? new Date(job.sentAt) : undefined,
+                failureReason: job.status === 'failed' ? parseFailureReason(job.error) : undefined,
+                errorMessage: job.error ?? undefined,
+                recipientData: job.recipientData,
+            };
+        });
+    }, [campaign.email_jobs]);
+
+    const stats = useMemo(() => {
+        const success = deliveryRecipients.filter((r) => r.status === 'success').length;
+        const failed = deliveryRecipients.filter((r) => r.status === 'failed').length;
+        const total = deliveryRecipients.length;
+        return {
+            total,
+            success,
+            failed,
+            successRate: total > 0 ? (success / total) * 100 : 0,
+        };
+    }, [deliveryRecipients]);
+
+    // Earliest sentAt across all jobs, used as campaign sent time
+    const campaignSentAt = useMemo(() => {
+        const times = deliveryRecipients
+            .map((r) => r.sentAt?.getTime())
+            .filter((t): t is number => t !== undefined);
+        return times.length > 0 ? new Date(Math.min(...times)) : undefined;
+    }, [deliveryRecipients]);
+
+    const campaignAttachments = useMemo(
+        () =>
+            (campaign.attachments ?? []).map((att) => ({
+                id: att.storedName,
+                name: att.filename,
+                size: att.size,
+                type: att.mimeType,
+            })),
+        [campaign.attachments],
+    );
+
+    const filteredRecipients = deliveryRecipients.filter((r) => {
         const matchesSearch = r.email.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
         return matchesSearch && matchesStatus;
     });
 
-    const tabs: { key: Tab; label: string }[] = [
-        { key: 'overview', label: 'Overview' },
-        { key: 'recipients', label: 'Recipients' },
-        { key: 'content', label: 'Content' },
-    ];
+    const handleViewDetails = (recipient: RecipientDeliveryStatus) => {
+        setSelectedRecipient(recipient);
+        setIsDetailsModalOpen(true);
+    };
+
+    const handleResendSingle = (recipient: RecipientDeliveryStatus) => {
+        setRecipientsToResend([recipient]);
+        setIsResendModalOpen(true);
+    };
+
+    const handleResendAllFailed = () => {
+        setRecipientsToResend(deliveryRecipients.filter((r) => r.status === 'failed'));
+        setIsResendModalOpen(true);
+    };
 
     return (
-        <BaseModal open={open} onOpenChange={onOpenChange} size="6xl">
-            <DialogHeader className="px-6 pt-6 pb-4 border-b">
-                <DialogTitle className="text-2xl">{campaign.name}</DialogTitle>
-                {campaign.sentAt && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                        Sent on {campaign.sentAt.toLocaleDateString()} at{' '}
-                        {campaign.sentAt.toLocaleTimeString()}
-                    </p>
-                )}
-            </DialogHeader>
+        <>
+            <BaseModal open={open} onOpenChange={onOpenChange} size="6xl">
+                <DialogHeader className="px-6 pt-6 pb-4 border-b">
+                    <DialogTitle className="text-2xl">{campaign.name}</DialogTitle>
+                    {campaignSentAt && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                            Sent on {campaignSentAt.toLocaleDateString()} at{' '}
+                            {campaignSentAt.toLocaleTimeString()}
+                        </p>
+                    )}
+                </DialogHeader>
 
-            <div className="flex-1 overflow-y-auto px-6 py-4">
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                    <Card>
-                        <CardContent className="pt-6">
-                            <div className="text-center">
-                                <p className="text-3xl font-bold">{campaign.stats.total}</p>
-                                <p className="text-sm text-muted-foreground mt-1">Total Recipients</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardContent className="pt-6">
-                            <div className="text-center">
-                                <div className="flex items-center justify-center gap-2">
-                                    <CheckCircle2 className="h-5 w-5 text-green-600" />
-                                    <p className="text-3xl font-bold text-green-600">{campaign.stats.success}</p>
-                                </div>
-                                <p className="text-sm text-muted-foreground mt-1">Success</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardContent className="pt-6">
-                            <div className="text-center">
-                                <div className="flex items-center justify-center gap-2">
-                                    <XCircle className="h-5 w-5 text-red-600" />
-                                    <p className="text-3xl font-bold text-red-600">{campaign.stats.failed}</p>
-                                </div>
-                                <p className="text-sm text-muted-foreground mt-1">Failed</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardContent className="pt-6">
-                            <div className="text-center">
-                                <p className="text-3xl font-bold text-[#9d7d59]">
-                                    {campaign.stats.successRate.toFixed(1)}%
-                                </p>
-                                <p className="text-sm text-muted-foreground mt-1">Success Rate</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                {/* Tabs */}
-                <div className="border-b mb-6">
-                    <div className="flex gap-6">
-                        {tabs.map((tab) => (
-                            <button
-                                key={tab.key}
-                                onClick={() => setActiveTab(tab.key)}
-                                className={`pb-4 px-1 border-b-2 transition-colors ${
-                                    activeTab === tab.key
-                                        ? 'border-[#9d7d59] text-[#9d7d59]'
-                                        : 'border-transparent text-muted-foreground hover:text-foreground'
-                                }`}
-                            >
-                                {tab.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Overview Tab */}
-                {activeTab === 'overview' && (
-                    <div className="space-y-6">
+                <div className="flex-1 overflow-y-auto px-6 py-4">
+                    {/* Stats Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                         <Card>
                             <CardContent className="pt-6">
-                                <h3 className="font-semibold mb-4">Failure Breakdown</h3>
-                                {campaign.stats.failed === 0 ? (
-                                    <p className="text-sm text-muted-foreground">No failures recorded.</p>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {(Object.entries(campaign.stats.failureBreakdown) as [FailureReason, number][]).map(
-                                            ([reason, count]) => {
-                                                if (count === 0) return null;
-                                                const pct = ((count / campaign.stats.failed) * 100).toFixed(0);
-                                                return (
-                                                    <div key={reason} className="flex items-center justify-between">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-2 h-2 rounded-full bg-red-500" />
-                                                            <span className="text-sm">{getFailureReasonText(reason)}</span>
-                                                        </div>
-                                                        <span className="text-sm text-muted-foreground">
-                                                            {count} ({pct}%)
-                                                        </span>
-                                                    </div>
-                                                );
-                                            }
-                                        )}
+                                <div className="text-center">
+                                    <p className="text-3xl font-bold">{stats.total}</p>
+                                    <p className="text-sm text-muted-foreground mt-1">
+                                        Total Recipients
+                                    </p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="pt-6">
+                                <div className="text-center">
+                                    <div className="flex items-center justify-center gap-2">
+                                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                        <p className="text-3xl font-bold text-green-600">
+                                            {stats.success}
+                                        </p>
                                     </div>
-                                )}
+                                    <p className="text-sm text-muted-foreground mt-1">Success</p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="pt-6">
+                                <div className="text-center">
+                                    <div className="flex items-center justify-center gap-2">
+                                        <XCircle className="h-5 w-5 text-red-600" />
+                                        <p className="text-3xl font-bold text-red-600">
+                                            {stats.failed}
+                                        </p>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground mt-1">Failed</p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="pt-6">
+                                <div className="text-center">
+                                    <p className="text-3xl font-bold text-[#9d7d59]">
+                                        {stats.successRate.toFixed(1)}%
+                                    </p>
+                                    <p className="text-sm text-muted-foreground mt-1">
+                                        Success Rate
+                                    </p>
+                                </div>
                             </CardContent>
                         </Card>
                     </div>
-                )}
 
-                {/* Recipients Tab */}
-                {activeTab === 'recipients' && (
+                    {/* Recipients List */}
                     <div className="space-y-4">
                         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
                             <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
@@ -204,7 +220,9 @@ export function CampaignDetailsModal({ open, onOpenChange, campaign }: CampaignD
                                 </div>
                                 <Select
                                     value={statusFilter}
-                                    onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}
+                                    onValueChange={(v) =>
+                                        setStatusFilter(v as typeof statusFilter)
+                                    }
                                 >
                                     <SelectTrigger className="w-full sm:w-40">
                                         <SelectValue />
@@ -217,16 +235,16 @@ export function CampaignDetailsModal({ open, onOpenChange, campaign }: CampaignD
                                     </SelectContent>
                                 </Select>
                             </div>
-                            {campaign.stats.failed > 0 && (
-                                <Button className="w-full sm:w-auto">
+                            {stats.failed > 0 && (
+                                <Button onClick={handleResendAllFailed} className="w-full sm:w-auto">
                                     <RefreshCw className="h-4 w-4 mr-2" />
-                                    Resend Failed ({campaign.stats.failed})
+                                    Resend Failed ({stats.failed})
                                 </Button>
                             )}
                         </div>
 
                         <p className="text-sm text-muted-foreground">
-                            Showing {filteredRecipients.length} of {campaign.stats.total} recipients
+                            Showing {filteredRecipients.length} of {stats.total} recipients
                         </p>
 
                         <Card>
@@ -243,24 +261,37 @@ export function CampaignDetailsModal({ open, onOpenChange, campaign }: CampaignD
                                     </thead>
                                     <tbody>
                                         {filteredRecipients.map((recipient) => (
-                                            <tr key={recipient.id} className="border-b last:border-0 hover:bg-muted/50">
+                                            <tr
+                                                key={recipient.id}
+                                                className="border-b last:border-0 hover:bg-muted/50"
+                                            >
                                                 <td className="p-4">{recipient.email}</td>
                                                 <td className="p-4">
                                                     <StatusBadge status={recipient.status} />
                                                 </td>
                                                 <td className="p-4 text-sm text-muted-foreground">
-                                                    {getFailureReasonText(recipient.failureReason)}
+                                                    {recipient.failureReason
+                                                        ? (FAILURE_REASON_LABELS[recipient.failureReason] ?? recipient.failureReason)
+                                                        : '-'}
                                                 </td>
                                                 <td className="p-4 text-sm text-muted-foreground">
                                                     {recipient.sentAt?.toLocaleTimeString() ?? '-'}
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="flex items-center gap-2">
-                                                        <Button variant="ghost" size="icon">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => handleViewDetails(recipient)}
+                                                        >
                                                             <Eye className="h-4 w-4" />
                                                         </Button>
                                                         {recipient.status === 'failed' && (
-                                                            <Button variant="ghost" size="icon">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => handleResendSingle(recipient)}
+                                                            >
                                                                 <RefreshCw className="h-4 w-4" />
                                                             </Button>
                                                         )}
@@ -273,29 +304,27 @@ export function CampaignDetailsModal({ open, onOpenChange, campaign }: CampaignD
                             </div>
                         </Card>
                     </div>
-                )}
+                </div>
+            </BaseModal>
 
-                {/* Content Tab */}
-                {activeTab === 'content' && (
-                    <Card>
-                        <CardContent className="pt-6">
-                            <div className="space-y-4">
-                                <div>
-                                    <h3 className="font-semibold mb-2">Subject</h3>
-                                    <p className="text-muted-foreground">{campaign.subject}</p>
-                                </div>
-                                <div>
-                                    <h3 className="font-semibold mb-2">Content</h3>
-                                    <div
-                                        className="prose max-w-none dark:prose-invert"
-                                        dangerouslySetInnerHTML={{ __html: campaign.content }}
-                                    />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
-            </div>
-        </BaseModal>
+            {selectedRecipient && (
+                <DeliveryDetailsModal
+                    open={isDetailsModalOpen}
+                    onOpenChange={setIsDetailsModalOpen}
+                    recipient={selectedRecipient}
+                    onResend={() => handleResendSingle(selectedRecipient)}
+                    subject={campaign.subject}
+                    content={campaign.content}
+                    attachments={campaignAttachments}
+                />
+            )}
+
+            <ResendConfirmModal
+                open={isResendModalOpen}
+                onOpenChange={setIsResendModalOpen}
+                recipients={recipientsToResend}
+                onConfirm={() => setIsResendModalOpen(false)}
+            />
+        </>
     );
 }

@@ -18,8 +18,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Send, Paperclip, FileText, Image as ImageIcon, File as FileIcon } from 'lucide-react';
 import SendScheduleModal from '@/components/email-template/SendScheduleModal';
-import { showNotifications } from '@/utils/showNotification';
-import { format } from 'date-fns';
+import { resolveTemplateText } from '@/utils/resolveTemplateText';
+import type { RecipientSchedule, SendMethod } from '@/components/email-template/SendScheduleModal';
 
 interface PreviewModalProps {
     isOpen: boolean;
@@ -31,7 +31,7 @@ interface PreviewModalProps {
     attachments?: FileAttachment[];
     previewIndex: number;
     onPreviewIndexChange: (index: number) => void;
-    onSend?: () => void;
+    onSend?: (method: SendMethod, schedules?: RecipientSchedule[]) => void;
     isSending?: boolean;
     signature?: string;
 }
@@ -64,19 +64,10 @@ const PreviewModal = ({
     const currentRecipient = recipients[previewIndex] || {};
 
     const resolveText = (text: string) => {
-        let resolved = text;
-        fields.forEach((field) => {
-            const value = currentRecipient[field.name] || '';
-            resolved = resolved.replace(
-                new RegExp(`\\[${field.name}\\]`, 'g'),
-                value ? `<strong>${value}</strong>` : `[${field.name}]`
-            );
-            resolved = resolved.replace(
-                new RegExp(`\\{\\{${field.name}\\s*\\|\\|\\s*['"]([^'"]+)['"]\\}\\}`, 'g'),
-                (_match, fallback) => `<strong>${value || fallback}</strong>`
-            );
-        });
-        return resolved;
+        const fieldMap = Object.fromEntries(
+            fields.map((f) => [f.name, currentRecipient[f.name] || '']),
+        );
+        return resolveTemplateText(text, fieldMap);
     };
 
     const resolvedSubject = resolveText(subject);
@@ -199,15 +190,7 @@ const PreviewModal = ({
                 onConfirm={(method, schedules) => {
                     setIsSendScheduleOpen(false);
                     onClose();
-                    if (method === 'now') {
-                        showNotifications('success', `Đang gửi chiến dịch đến ${recipients.length} người nhận...`);
-                    } else if (method === 'schedule-all' && schedules?.length) {
-                        const d = schedules[0].scheduledDate;
-                        showNotifications('success', `Đã lên lịch gửi vào ${format(d, 'dd/MM/yyyy')} lúc ${format(d, 'HH:mm')}`);
-                    } else if (method === 'schedule-individual') {
-                        showNotifications('success', `Đã lên lịch cho ${recipients.length} người nhận`);
-                    }
-                    onSend?.();
+                    onSend?.(method, schedules);
                 }}
             />
         </BaseModal>
