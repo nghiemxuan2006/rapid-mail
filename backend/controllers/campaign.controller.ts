@@ -2,7 +2,9 @@ import { NextFunction, Request, Response } from 'express';
 import Campaign from '../models/campaign.model';
 import { NOT_FOUND_ERROR } from '../utils/error';
 import { CreateCampaignBody, UpdateCampaignBody, CampaignParams } from '../schema/campaign.schema';
-import { saveFiles, deleteFiles, deleteSingleFile } from '../services/file-storage.service';
+import { saveFiles, deleteFiles, deleteSingleFile, readCampaignConfig } from '../services/file-storage.service';
+import User from '../models/user.model';
+import Signature from '../models/signature.model';
 
 export const createCampaign = async (
   req: Request<{}, {}, CreateCampaignBody>,
@@ -45,7 +47,33 @@ export const getCampaignById = async (
     if (!campaign) {
       throw new NOT_FOUND_ERROR('Campaign not found');
     }
-    res.json({ message: 'Campaign retrieved successfully', data: campaign });
+
+    let signature = '';
+
+    if (campaign.status === 'draft') {
+      const user = await User.findById(req.user.sub);
+      if (user) {
+        const activeAccount = user.activeAccountId
+          ? (user.connectedAccounts || []).find(
+              (acc: any) => acc._id.toString() === String(user.activeAccountId)
+            )
+          : null;
+        const senderEmail = activeAccount?.email || user.email;
+        const matchedSignature = await Signature.findOne({
+          userId: campaign.user_id,
+          sourceEmail: senderEmail,
+        }).lean();
+        signature = matchedSignature?.content ?? '';
+      }
+    } else {
+      const config = readCampaignConfig(campaign._id.toString());
+      signature = config?.signature ?? '';
+    }
+
+    res.json({
+      message: 'Campaign retrieved successfully',
+      data: { ...campaign.toObject(), signature },
+    });
   } catch (error) {
     next(error);
   }
