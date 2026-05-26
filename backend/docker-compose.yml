@@ -64,6 +64,27 @@ services:
       - rapid-mail-network
     command: npm start
 
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rapid-mail-worker
+    restart: unless-stopped
+    env_file:
+      - .env.test
+    environment:
+      - FILE_STORAGE_PATH=/data/rapid-mail
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - rapid_mail_data:/data/rapid-mail
+    networks:
+      - rapid-mail-network
+    command: npm run worker
+
 volumes:
   mongodb_data:
     driver: local
