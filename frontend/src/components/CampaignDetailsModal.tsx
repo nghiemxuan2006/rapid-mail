@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { BaseModal } from '@/components/ui/base-modal';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,11 +13,11 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { CheckCircle2, XCircle, Clock, RefreshCw, Eye, Search } from 'lucide-react';
-import type { Campaign, RecipientDeliveryStatus, RecipientStatus, FailureReason } from '@/schema/campaign';
+import type { RecipientDeliveryStatus, RecipientStatus, FailureReason } from '@/schema/campaign';
 import { DeliveryDetailsModal } from '@/components/DeliveryDetailsModal';
 import { ResendConfirmModal } from '@/components/ResendConfirmModal';
 import { getCampaignByIdApi } from '@/features/campaign/campaignApi';
-import { useAppDispatch } from '@/app/hook';
+import { useAppDispatch, useAppSelector } from '@/app/hook';
 
 interface CampaignDetailsModalProps {
     open: boolean;
@@ -67,7 +67,7 @@ const FAILURE_REASON_LABELS: Record<string, string> = {
 
 export function CampaignDetailsModal({ open, onOpenChange, campaignId }: CampaignDetailsModalProps) {
     const dispatch = useAppDispatch();
-    const [campaign, setCampaign] = useState<Campaign | null>(null);
+    const campaign = useAppSelector((state) => state.campaign.list.find((c) => c._id === campaignId));
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | RecipientStatus>('all');
     const [selectedRecipient, setSelectedRecipient] = useState<RecipientDeliveryStatus | null>(null);
@@ -75,13 +75,28 @@ export function CampaignDetailsModal({ open, onOpenChange, campaignId }: Campaig
     const [isResendModalOpen, setIsResendModalOpen] = useState(false);
     const [recipientsToResend, setRecipientsToResend] = useState<RecipientDeliveryStatus[]>([]);
 
+    const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const statusRef = useRef(campaign?.status);
+    statusRef.current = campaign?.status;
+
     useEffect(() => {
         if (!open) return;
-        dispatch(getCampaignByIdApi({ id: campaignId })).then((action) => {
-            if (getCampaignByIdApi.fulfilled.match(action)) {
-                setCampaign(action.payload);
+
+        dispatch(getCampaignByIdApi({ id: campaignId }));
+
+        pollingRef.current = setInterval(() => {
+            if (statusRef.current === 'sending') {
+                dispatch(getCampaignByIdApi({ id: campaignId }));
+            } else {
+                // Campaign finished — fetch one final time to get up-to-date email_jobs
+                dispatch(getCampaignByIdApi({ id: campaignId }));
+                if (pollingRef.current) clearInterval(pollingRef.current);
             }
-        });
+        }, 8000);
+
+        return () => {
+            if (pollingRef.current) clearInterval(pollingRef.current);
+        };
     }, [open, campaignId]);
 
     const deliveryRecipients = useMemo<RecipientDeliveryStatus[]>(() => {
@@ -96,7 +111,7 @@ export function CampaignDetailsModal({ open, onOpenChange, campaignId }: Campaig
                 failureReason: job.status === 'failed' ? parseFailureReason(job.error) : undefined,
                 errorMessage: job.error ?? undefined,
                 recipientData: job.recipientData,
-            };
+            } satisfies RecipientDeliveryStatus;
         });
     }, [campaign?.email_jobs]);
 
@@ -127,7 +142,7 @@ export function CampaignDetailsModal({ open, onOpenChange, campaignId }: Campaig
                 name: att.filename,
                 size: att.size,
                 type: att.mimeType,
-            })),
+            } satisfies { id: string; name: string; size: number; type: string })),
         [campaign?.attachments],
     );
 

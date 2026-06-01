@@ -78,7 +78,6 @@ const SendScheduleModal = ({ open, onOpenChange, recipients, onConfirm }: SendSc
         } else {
             onConfirm('schedule-individual', recipientSchedules);
         }
-        onOpenChange(false);
     };
 
     const handleQuickFill = (type: 'same' | 'spread') => {

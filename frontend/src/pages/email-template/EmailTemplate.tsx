@@ -3,9 +3,9 @@ import MailEditor, { type MailEditorRef } from '@/components/email-template/Mail
 import PreviewModal from '@/components/email-template/PreviewModal';
 import RecipientsModal from '@/components/email-template/RecipientsModal';
 import { PersonalizationModal } from '@/components/email-template/PersonalizationModal';
-import ScheduleModal from '@/components/email-template/ScheduleModal';
-import { ContactsIcon, ArrowLeftIcon, EyeIcon, CalendarIcon, FloppyDiskIcon, PaperclipIcon, PlusIcon, InfoIcon } from '@/assets/icons';
+import { ContactsIcon, ArrowLeftIcon, EyeIcon, FloppyDiskIcon, PaperclipIcon, PlusIcon, InfoIcon } from '@/assets/icons';
 import { sendCampaignApi } from '@/features/campaign/campaignApi';
+import { updateCampaign as updateCampaignInStore } from '@/features/campaign/campaignSlice';
 import type { SendMethod, RecipientSchedule } from '@/components/email-template/SendScheduleModal';
 import { showNotifications } from '@/utils';
 import { useAppDispatch } from '@/app/hook';
@@ -85,7 +85,6 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
 
     // UI state
     const [isRecipientsModalOpen, setIsRecipientsModalOpen] = useState(false);
-    const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
     const [isPersonalizationOpen, setIsPersonalizationOpen] = useState(false);
     const [isAddVariableOpen, setIsAddVariableOpen] = useState(false);
     const [newFieldName, setNewFieldName] = useState('');
@@ -325,6 +324,12 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                 await dispatch(sendCampaignApi({ id: campaignId, sendMode: 'schedule_individual', scheduledTimes })).unwrap();
                 showNotifications('success', `Đã lên lịch cho ${schedules.length} người nhận`);
             }
+
+            const currentMeta = campaignMeta || campaign;
+            if (currentMeta) {
+                dispatch(updateCampaignInStore({ ...currentMeta, _id: campaignId, status: 'sending' }));
+            }
+
             onBack?.();
         } catch (err) {
             showNotifications('error', err instanceof Error ? err.message : 'Failed to send emails');
@@ -459,13 +464,6 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                                 <EyeIcon className="size-4 mr-2" />
                                 Preview
                             </Button>
-
-                            {!isReadOnly && (
-                                <Button variant="outline" size="sm" onClick={() => setIsScheduleModalOpen(true)}>
-                                    <CalendarIcon className="size-4 mr-2" />
-                                    Schedule
-                                </Button>
-                            )}
 
                             {(onCreate || onUpdate) && !isReadOnly && (
                                 <Button variant="outline" size="sm" onClick={handleSaveCampaign}>
@@ -714,13 +712,6 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-
-            {/* Schedule Modal */}
-            <ScheduleModal
-                isOpen={isScheduleModalOpen}
-                onClose={() => setIsScheduleModalOpen(false)}
-                onSchedule={(date) => console.log('Scheduled for:', date)}
-            />
 
             {/* Recipients Modal */}
             <RecipientsModal

@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { utcToLocal } from '@/utils';
+import { useSendingCampaignPolling } from '@/hooks/useSendingCampaignPolling';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import EmailTemplate from '@/pages/email-template/EmailTemplate';
 import type { Campaign, CampaignCreateInput, CampaignUpdateInput } from '@/schema/campaign';
@@ -60,6 +62,13 @@ const Campaigns = () => {
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [selectedCampaignForAction, setSelectedCampaignForAction] = useState<Campaign | null>(null);
   const [isActionLoading, setIsActionLoading] = useState(false);
+
+  // Poll campaigns that are still sending
+  const sendingCampaignIds = useMemo(
+    () => campaigns.filter((c) => c.status === 'sending').map((c) => c._id),
+    [campaigns],
+  );
+  useSendingCampaignPolling(sendingCampaignIds, 'list');
 
   // Determine if we're on edit/create route immediately
   const isEditRoute = location.pathname.startsWith('/campaigns/') && !!id;
@@ -355,7 +364,7 @@ const Campaigns = () => {
                     <TableCell className="font-medium">{campaign.name}</TableCell>
                     <TableCell>{getStatusBadge(campaign.status)}</TableCell>
                     <TableCell>{campaign.recipients?.length ?? 0}</TableCell>
-                    <TableCell>{campaign.createdAt}</TableCell>
+                    <TableCell>{utcToLocal(campaign.createdAt)}</TableCell>
                     <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                       {campaign.status === 'completed' || campaign.status === 'sending' || campaign.status === 'failed' ? (
                         <button
