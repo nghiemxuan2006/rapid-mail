@@ -60,6 +60,7 @@ services:
         condition: service_healthy
     volumes:
       - rapid_mail_data:/data/rapid-mail
+      - ./logs/backend:/app/logs
     networks:
       - rapid-mail-network
     command: npm start
@@ -81,6 +82,7 @@ services:
         condition: service_healthy
     volumes:
       - rapid_mail_data:/data/rapid-mail
+      - ./logs/worker:/app/logs
     networks:
       - rapid-mail-network
     command: npm run worker
