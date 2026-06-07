@@ -10,6 +10,8 @@ export type EmailJob = {
   sentAt: Date | null;
   error: string | null;
   retryCount: number;
+  threadId: string | null;
+  messageId: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
