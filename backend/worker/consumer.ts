@@ -5,6 +5,7 @@ import { readCampaignConfig, readFile } from '../services/file-storage.service';
 import User from '../models/user.model';
 import logger from '../utils/wiston-log';
 import { Recipient } from '../schema/common.schema';
+import { setupGmailWatch } from '../services/gmail-watch.service';
 
 type QueueMessage = {
   campaignId: string;
@@ -131,6 +132,21 @@ export const startConsumer = async (maxRetries: number): Promise<void> => {
         messageId: sendResult.messageId ?? null,
       });
       logger.info(`Job ${jobId} sent successfully`);
+
+      // Setup Gmail watch if account doesn't have an active one
+      const freshUser = await User.findById(user._id);
+      if (freshUser) {
+        const activeAcc = freshUser.connectedAccounts.find(
+          (a: any) => a._id.toString() === freshUser.activeAccountId?.toString() && a.provider === 'gmail'
+        );
+        if (activeAcc && (!activeAcc.gmailWatchExpiry || activeAcc.gmailWatchExpiry < new Date())) {
+          await setupGmailWatch(
+            freshUser._id.toString(),
+            activeAcc._id.toString(),
+            activeAcc.accessToken
+          );
+        }
+      }
 
     } catch (err: any) {
       logger.error(`Job ${jobId} failed`, { error: err.message });
