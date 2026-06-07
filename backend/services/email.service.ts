@@ -261,16 +261,16 @@ const sendWithGmailApi = async (accessToken: string, rawMessage: string) => {
     });
 
     if (response.status === 401) {
-        return { needRefresh: true, messageId: null } as const;
+        return { needRefresh: true, messageId: null, threadId: null } as const;
     }
 
-    const data = response.data as { id?: string; error?: { message?: string } };
+    const data = response.data as { id?: string; threadId?: string; error?: { message?: string } };
 
     if (response.status >= 400 || !data.id) {
         throw new BAD_REQUEST_ERROR(data.error?.message || 'Failed to send email with Gmail API');
     }
 
-    return { needRefresh: false, messageId: data.id } as const;
+    return { needRefresh: false, messageId: data.id, threadId: data.threadId ?? null } as const;
 };
 
 export const sendEmail = async ({ content, receivers, user, subject, signature, attachments }: EmailPayload) => {
@@ -320,6 +320,7 @@ export const sendEmail = async ({ content, receivers, user, subject, signature, 
             receivers: uniqueReceivers,
             status: 'sent',
             messageId: null,
+            threadId: null,
         };
     }
 
@@ -366,6 +367,7 @@ export const sendEmail = async ({ content, receivers, user, subject, signature, 
         receivers: uniqueReceivers,
         status: 'sent',
         messageId: sendResult.messageId,
+        threadId: sendResult.threadId,
     };
 };
 
