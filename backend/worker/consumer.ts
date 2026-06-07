@@ -115,7 +115,7 @@ export const startConsumer = async (maxRetries: number): Promise<void> => {
         }));
       }
 
-      await sendEmail({
+      const sendResult = await sendEmail({
         content: personalizedContent,
         receivers: [job.recipientData['Email']],
         user,
@@ -124,7 +124,12 @@ export const startConsumer = async (maxRetries: number): Promise<void> => {
         attachments: emailAttachments,
       });
 
-      await updateJobStatus(campaignId, jobId, { status: 'sent', sentAt: new Date() });
+      await updateJobStatus(campaignId, jobId, {
+        status: 'sent',
+        sentAt: new Date(),
+        threadId: sendResult.threadId ?? null,
+        messageId: sendResult.messageId ?? null,
+      });
       logger.info(`Job ${jobId} sent successfully`);
 
     } catch (err: any) {
