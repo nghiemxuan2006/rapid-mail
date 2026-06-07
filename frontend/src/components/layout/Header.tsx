@@ -14,6 +14,7 @@ import { useAppDispatch } from '@/app/hook';
 import { logout } from '@/features/auth/authSlice';
 import { RapidmailLogo } from '@/components/RapidmailLogo';
 import { SettingsModal } from '@/components/SettingsModal';
+import { NotificationBell } from '@/components/NotificationBell';
 
 const Header = () => {
   const navigate = useNavigate();
@@ -82,6 +83,7 @@ const Header = () => {
 
           {/* Right side - Theme toggle and User */}
           <div className="flex items-center gap-4">
+            <NotificationBell />
             <Button
               variant="ghost"
               size="icon"
