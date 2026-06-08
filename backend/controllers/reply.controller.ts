@@ -1,9 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
 import Reply from '../models/reply.model';
 
 export const getReplies = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const userId = (req as any).userId;
+    const userId = new mongoose.Types.ObjectId(req.user?.sub as string);
     const { unread, campaignId } = req.query;
 
     const filter: Record<string, unknown> = { userId };
@@ -24,7 +25,7 @@ export const getReplies = async (req: Request, res: Response, next: NextFunction
 export const markReplyRead = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
-    const userId = (req as any).userId;
+    const userId = req.user?.sub;
 
     await Reply.findOneAndUpdate({ _id: id, userId }, { isRead: true });
     res.json({ success: true });

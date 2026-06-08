@@ -7,6 +7,7 @@ export type Reply = {
   recipientEmail: string;
   threadId: string;
   replyMessageId: string;
+  gmailUrl: string;
   snippet: string;
   receivedAt: string;
   isRead: boolean;
@@ -19,8 +20,7 @@ export const fetchUnreadReplies = async (): Promise<Reply[]> => {
     }
   }
 
-  const res = await sendRequest('replies', 'GET', { unread: true }, thunkApi)
-  return res.data
+  return await sendRequest('replies', 'GET', null, thunkApi)
 }
 
 export const markReplyRead = async (id: string): Promise<void> => {

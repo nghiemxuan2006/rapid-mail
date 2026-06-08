@@ -7,7 +7,7 @@ export const useReplies = () => {
   const load = useCallback(async () => {
     try {
       const data = await fetchUnreadReplies();
-      setReplies(data);
+      setReplies(Array.isArray(data) ? data : []);
     } catch {
       // fail silently — notification is non-critical
     }

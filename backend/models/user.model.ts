@@ -11,7 +11,7 @@ export type ConnectedAccount = {
   gmailHistoryId: string | null;
 };
 
-export type UserDocument = User & Document & {
+export type UserDocument = Omit<User, 'connectedAccounts'> & Document & {
   createdAt: Date;
   updatedAt: Date;
   connectedAccounts: ConnectedAccount[];

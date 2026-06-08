@@ -6,6 +6,7 @@ export type ReplyDocument = Document & {
   recipientEmail: string;
   threadId: string;
   replyMessageId: string;
+  gmailUrl: string;
   snippet: string;
   receivedAt: Date;
   isRead: boolean;
@@ -18,6 +19,7 @@ const ReplySchema = new Schema<ReplyDocument>({
   recipientEmail: { type: String, required: true },
   threadId: { type: String, required: true },
   replyMessageId: { type: String, required: true, unique: true },
+  gmailUrl: { type: String, default: '' },
   snippet: { type: String, default: '' },
   receivedAt: { type: Date, required: true },
   isRead: { type: Boolean, default: false },

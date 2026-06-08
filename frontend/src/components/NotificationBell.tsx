@@ -10,19 +10,16 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useReplies } from '@/hooks/useReplies';
 import { markReplyRead } from '@/features/reply/replyApi';
-import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 
 export const NotificationBell = () => {
   const { replies, reload } = useReplies();
-  const navigate = useNavigate();
-  const unreadCount = replies.length;
+  const unreadCount = replies.filter((r) => !r.isRead).length;
 
-  const handleClick = async (replyId: string, campaignId: string | { _id: string; name: string }) => {
+  const handleClick = async (replyId: string, gmailUrl: string) => {
     await markReplyRead(replyId);
     reload();
-    const cid = typeof campaignId === 'string' ? campaignId : campaignId._id;
-    navigate(`/campaigns/${cid}`);
+    if (gmailUrl) window.open(gmailUrl, '_blank');
   };
 
   const getCampaignName = (reply: (typeof replies)[0]) => {
@@ -47,22 +44,25 @@ export const NotificationBell = () => {
         <DropdownMenuSeparator />
         {replies.length === 0 ? (
           <div className="py-4 text-center text-sm text-muted-foreground">
-            No new replies
+            No replies yet
           </div>
         ) : (
           replies.map((reply) => (
             <DropdownMenuItem
               key={reply._id}
-              className="flex flex-col items-start gap-1 p-3 cursor-pointer"
-              onClick={() => handleClick(reply._id, reply.campaignId)}
+              className={`flex flex-col items-start gap-1 p-3 cursor-pointer ${!reply.isRead ? 'bg-muted/50' : ''}`}
+              onClick={() => handleClick(reply._id, reply.gmailUrl)}
             >
-              <div className="flex w-full justify-between">
-                <span className="text-sm font-medium truncate max-w-[180px]">
+              <div className="flex w-full justify-between items-start">
+                <span className={`text-sm truncate max-w-45 ${!reply.isRead ? 'font-semibold' : 'font-medium text-muted-foreground'}`}>
                   {reply.recipientEmail}
                 </span>
-                <span className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(new Date(reply.receivedAt), { addSuffix: true })}
-                </span>
+                <div className="flex items-center gap-1 shrink-0">
+                  {!reply.isRead && <span className="h-2 w-2 rounded-full bg-blue-500" />}
+                  <span className="text-xs text-muted-foreground">
+                    {formatDistanceToNow(new Date(reply.receivedAt), { addSuffix: true })}
+                  </span>
+                </div>
               </div>
               <span className="text-xs text-muted-foreground">
                 {getCampaignName(reply)}

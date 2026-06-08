@@ -42,13 +42,22 @@ const fetchHistory = async (
 const fetchMessageSnippet = async (
   accessToken: string,
   messageId: string
-): Promise<string> => {
-  const response = await fetch(`${GMAIL_MESSAGE_ENDPOINT}/${messageId}?format=metadata`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!response.ok) return '';
-  const data = await response.json() as { snippet?: string };
-  return (data.snippet ?? '').slice(0, 200);
+): Promise<{ snippet: string; gmailUrl: string }> => {
+  const response = await fetch(
+    `${GMAIL_MESSAGE_ENDPOINT}/${messageId}?format=metadata&metadataHeaders=Message-ID`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!response.ok) return { snippet: '', gmailUrl: '' };
+  const data = await response.json() as {
+    snippet?: string;
+    payload?: { headers?: { name: string; value: string }[] };
+  };
+  const snippet = (data.snippet ?? '').slice(0, 200);
+  const rfc822MessageId = data.payload?.headers?.find((h) => h.name === 'Message-ID')?.value ?? '';
+  const gmailUrl = rfc822MessageId
+    ? `https://mail.google.com/mail/u/0/#search/rfc822msgid:${encodeURIComponent(rfc822MessageId)}`
+    : '';
+  return { snippet, gmailUrl };
 };
 
 export const handlePubSubWebhook = async (req: Request, res: Response): Promise<void> => {
@@ -119,7 +128,7 @@ export const handlePubSubWebhook = async (req: Request, res: Response): Promise<
       const exists = await Reply.findOne({ replyMessageId: msg.id });
       if (exists) continue;
 
-      const snippet = await fetchMessageSnippet(account.accessToken, msg.id);
+      const { snippet, gmailUrl } = await fetchMessageSnippet(account.accessToken, msg.id);
 
       await Reply.create({
         campaignId: match.campaignId,
@@ -127,6 +136,7 @@ export const handlePubSubWebhook = async (req: Request, res: Response): Promise<
         recipientEmail: match.recipientEmail,
         threadId: msg.threadId,
         replyMessageId: msg.id,
+        gmailUrl,
         snippet,
         receivedAt: new Date(),
         isRead: false,
