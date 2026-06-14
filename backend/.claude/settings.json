@@ -1,10 +1,6 @@
 {
   "permissions": {
-    "allow": [
-      "Bash(npm install:*)",
-      "Bash(npx tsc:*)",
-      "Read(//d/my_study/rapid-mail/**)"
-    ]
+    "allow": ["Bash(npm install:*)", "Bash(npx tsc:*)", "Read(//d/my_study/rapid-mail/**)"]
   },
   "enabledPlugins": {
     "superpowers@claude-plugins-official": true

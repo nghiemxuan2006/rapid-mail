@@ -1,5 +1,13 @@
 import express from 'express';
-import { getProfile, login, refresh, connectGmail, connectOutlook, removeConnectedAccount, activateConnectedAccount } from '../controllers/auth.controller';
+import {
+  getProfile,
+  login,
+  refresh,
+  connectGmail,
+  connectOutlook,
+  removeConnectedAccount,
+  activateConnectedAccount,
+} from '../controllers/auth.controller';
 import { validateRequestQuery } from '../middleware/validation';
 import { loginQuerySchema } from '../schema/auth.schema';
 import verifyToken from '../middleware/verify-token';

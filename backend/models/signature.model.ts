@@ -20,7 +20,7 @@ const SignatureSchema = new Schema<SignatureDocument>(
     provider: { type: String, enum: ['gmail', 'outlook'] },
     isDefault: { type: Boolean, default: false },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.model<SignatureDocument>('Signature', SignatureSchema);

@@ -7,7 +7,7 @@ const GMAIL_WATCH_ENDPOINT = 'https://gmail.googleapis.com/gmail/v1/users/me/wat
 export const setupGmailWatch = async (
   userId: string,
   accountId: string,
-  accessToken: string
+  accessToken: string,
 ): Promise<void> => {
   const response = await fetch(GMAIL_WATCH_ENDPOINT, {
     method: 'POST',
@@ -27,7 +27,7 @@ export const setupGmailWatch = async (
     return;
   }
 
-  const data = await response.json() as { historyId: string; expiration: string };
+  const data = (await response.json()) as { historyId: string; expiration: string };
 
   await User.findOneAndUpdate(
     { _id: userId, 'connectedAccounts._id': accountId },
@@ -36,7 +36,7 @@ export const setupGmailWatch = async (
         'connectedAccounts.$.gmailHistoryId': data.historyId,
         'connectedAccounts.$.gmailWatchExpiry': new Date(Number(data.expiration)),
       },
-    }
+    },
   );
 
   logger.info('Gmail watch setup', { userId, accountId, historyId: data.historyId });
@@ -59,13 +59,10 @@ export const renewExpiringWatches = async (): Promise<void> => {
         account.provider !== 'gmail' ||
         !account.gmailWatchExpiry ||
         account.gmailWatchExpiry > threshold
-      ) continue;
+      )
+        continue;
 
-      await setupGmailWatch(
-        user._id.toString(),
-        account._id.toString(),
-        account.accessToken
-      );
+      await setupGmailWatch(user._id.toString(), account._id.toString(), account.accessToken);
     }
   }
 };

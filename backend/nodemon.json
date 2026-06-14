@@ -1,10 +1,6 @@
 {
-    "watch": [
-        ""
-    ],
-    "ext": "ts",
-    "ignore": [
-        "dist"
-    ],
-    "exec": "tsx -r dotenv/config app.ts dotenv_config_path=.env"
+  "watch": [""],
+  "ext": "ts",
+  "ignore": ["dist"],
+  "exec": "tsx -r dotenv/config app.ts dotenv_config_path=.env"
 }

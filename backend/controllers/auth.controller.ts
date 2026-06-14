@@ -1,5 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
-import { loginWithGoogle, refreshAppToken, getUserProfile, connectGmailAccount, connectOutlookAccount, disconnectAccount, setActiveAccount } from '../services/auth.service';
+import {
+  loginWithGoogle,
+  refreshAppToken,
+  getUserProfile,
+  connectGmailAccount,
+  connectOutlookAccount,
+  disconnectAccount,
+  setActiveAccount,
+} from '../services/auth.service';
 import { BAD_REQUEST_ERROR } from '../utils/error';
 import { extractToken } from '../utils/token';
 import { LoginQuery } from '../schema/auth.schema';
@@ -95,4 +103,12 @@ const activateConnectedAccount = async (req: Request, res: Response, next: NextF
   }
 };
 
-export { login, refresh, getProfile, connectGmail, connectOutlook, removeConnectedAccount, activateConnectedAccount };
+export {
+  login,
+  refresh,
+  getProfile,
+  connectGmail,
+  connectOutlook,
+  removeConnectedAccount,
+  activateConnectedAccount,
+};

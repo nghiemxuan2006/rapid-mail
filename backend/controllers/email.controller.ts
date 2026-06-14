@@ -6,7 +6,7 @@ import { SendCampaignEmailsBody } from '../schema/email.schema';
 export const submitCampaignEmails = async (
   req: Request<{}, {}, SendCampaignEmailsBody>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const userId = req.user?.sub as string | undefined;

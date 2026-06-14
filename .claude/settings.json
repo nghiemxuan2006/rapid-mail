@@ -4,7 +4,11 @@
       "mcp__figma__get_design_context",
       "mcp__figma__get_screenshot",
       "mcp__figma__use_figma",
-      "mcp__figma__get_metadata"
+      "mcp__figma__get_metadata",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(find /d:/my_study/rapid-mail/frontend/src/features -name \"*Api.tsx\" | head -3)",
+      "Read(//d:/my_study/rapid-mail/frontend/src/**)"
     ]
   }
 }

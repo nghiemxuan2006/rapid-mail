@@ -1,67 +1,67 @@
 import express from 'express';
-import bodyParser from "body-parser";
-import cors from "cors";
+import bodyParser from 'body-parser';
+import cors from 'cors';
 import helmet from 'helmet';
-import morgan from "morgan";
+import morgan from 'morgan';
 import swaggerJSDoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
-import logger from './utils/wiston-log'
-import settings from './config/env'
+import logger from './utils/wiston-log';
+import settings from './config/env';
 import compression from 'compression';
 import { errorHandler } from './middleware/error-handler';
 import { BAD_REQUEST_ERROR } from './utils/error';
 import connectMongoDB from './config/mongodb';
 import { connectRabbitMQ } from './services/rabbitmq.service';
 
-import routers from './routers'
-import http from 'http'
-import { ensureStorageDir } from './services/file-storage.service'
+import routers from './routers';
+import http from 'http';
+import { ensureStorageDir } from './services/file-storage.service';
 const writeLog = {
-    write: (message: string) => {
-        logger.info(message)
-    }
-}
+  write: (message: string) => {
+    logger.info(message);
+  },
+};
 const app = express();
 const port = settings.PORT;
-console.log("🚀 ~ settings:", settings)
+console.log('🚀 ~ settings:', settings);
 
 const swaggerDefinition = {
-    openapi: '3.0.0',
-    info: {
-        title: 'Dating App API Documentation',
-        version: '1.0.0',
-        description: 'API documentation for Dating App backend with authentication',
+  openapi: '3.0.0',
+  info: {
+    title: 'Dating App API Documentation',
+    version: '1.0.0',
+    description: 'API documentation for Dating App backend with authentication',
+  },
+  servers: [
+    {
+      url: `http://localhost:${port}`,
     },
-    servers: [
-        {
-            url: `http://localhost:${port}`,
-        },
-    ],
-    components: {
-        securitySchemes: {
-            bearerAuth: {
-                type: 'http',
-                scheme: 'bearer',
-                bearerFormat: 'JWT',
-            },
-        },
+  ],
+  components: {
+    securitySchemes: {
+      bearerAuth: {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+      },
     },
-    security: [
-        {
-            bearerAuth: [],
-        },
-    ],
+  },
+  security: [
+    {
+      bearerAuth: [],
+    },
+  ],
 };
 
 const options = {
-    swaggerDefinition,
-    apis: ['./routers/*.ts'], // Adjust path to your route files
+  swaggerDefinition,
+  apis: ['./routers/*.ts'], // Adjust path to your route files
 };
 
 const swaggerSpec = swaggerJSDoc(options);
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-app.use(morgan('combined', { stream: writeLog }))
+app.use(morgan('combined', { stream: writeLog }));
 
 // parse body params and attache them to req.body
 app.use(bodyParser.json());
@@ -82,11 +82,11 @@ app.use(compression());
 // enable cors
 app.use(cors());
 
-app.use('/v1', routers)
+app.use('/v1', routers);
 
 app.get('/', (req, res) => {
-    // throw new BAD_REQUEST_ERROR('This is a bad request example');
-    res.send('Hello World!');
+  // throw new BAD_REQUEST_ERROR('This is a bad request example');
+  res.send('Hello World!');
 });
 
 // Error handler middleware
@@ -106,5 +106,5 @@ connectRabbitMQ().catch((err) => {
 });
 
 server.listen(port, () => {
-    logger.info(`Express is listening at http://localhost:${port}`);
+  logger.info(`Express is listening at http://localhost:${port}`);
 });

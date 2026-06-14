@@ -2,7 +2,11 @@ import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import Reply from '../models/reply.model';
 
-export const getReplies = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const getReplies = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
   try {
     const userId = new mongoose.Types.ObjectId(req.user?.sub as string);
     const { unread, campaignId } = req.query;
@@ -22,7 +26,11 @@ export const getReplies = async (req: Request, res: Response, next: NextFunction
   }
 };
 
-export const markReplyRead = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const markReplyRead = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
   try {
     const { id } = req.params;
     const userId = req.user?.sub;

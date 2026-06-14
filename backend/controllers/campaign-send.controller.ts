@@ -11,7 +11,7 @@ import { writeCampaignConfig } from '../services/file-storage.service';
 export const sendCampaign = async (
   req: Request<CampaignSendParams, {}, SendCampaignBody>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const campaign = await Campaign.findById(req.params.id);
@@ -38,10 +38,14 @@ export const sendCampaign = async (
       if (sendMode === 'now') {
         scheduledAt = now;
       } else if (sendMode === 'schedule_all') {
-        scheduledAt = new Date((req.body as { sendMode: 'schedule_all'; scheduledAt: string }).scheduledAt);
+        scheduledAt = new Date(
+          (req.body as { sendMode: 'schedule_all'; scheduledAt: string }).scheduledAt,
+        );
       } else {
         // schedule_individual
-        const times = (req.body as { sendMode: 'schedule_individual'; scheduledTimes: Record<string, string> }).scheduledTimes;
+        const times = (
+          req.body as { sendMode: 'schedule_individual'; scheduledTimes: Record<string, string> }
+        ).scheduledTimes;
         const recipientId = recipient['id'] as string;
         if (!times[recipientId]) {
           throw new BAD_REQUEST_ERROR(`Missing scheduledAt for recipient ${recipientId}`);
@@ -56,6 +60,8 @@ export const sendCampaign = async (
         sentAt: null,
         error: null,
         retryCount: 0,
+        threadId: null,
+        messageId: null,
         createdAt: now,
         updatedAt: now,
       };
@@ -69,7 +75,7 @@ export const sendCampaign = async (
 
     const activeAccount = user.activeAccountId
       ? (user.connectedAccounts || []).find(
-          (acc: any) => acc._id.toString() === String(user.activeAccountId)
+          (acc: any) => acc._id.toString() === String(user.activeAccountId),
         )
       : null;
     const senderEmail = activeAccount?.email || user.email;
@@ -101,7 +107,7 @@ export const sendCampaign = async (
 export const cancelCampaign = async (
   req: Request<CampaignSendParams>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const campaign = await Campaign.findById(req.params.id);
@@ -137,7 +143,7 @@ export const cancelCampaign = async (
 export const getCampaignStatus = async (
   req: Request<CampaignSendParams>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const campaign = await Campaign.findById(req.params.id);

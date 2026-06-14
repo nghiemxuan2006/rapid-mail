@@ -2,14 +2,19 @@ import { NextFunction, Request, Response } from 'express';
 import Campaign from '../models/campaign.model';
 import { NOT_FOUND_ERROR } from '../utils/error';
 import { CreateCampaignBody, UpdateCampaignBody, CampaignParams } from '../schema/campaign.schema';
-import { saveFiles, deleteFiles, deleteSingleFile, readCampaignConfig } from '../services/file-storage.service';
+import {
+  saveFiles,
+  deleteFiles,
+  deleteSingleFile,
+  readCampaignConfig,
+} from '../services/file-storage.service';
 import User from '../models/user.model';
 import Signature from '../models/signature.model';
 
 export const createCampaign = async (
   req: Request<{}, {}, CreateCampaignBody>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { name, subject, content, recipients } = req.body;
@@ -42,7 +47,7 @@ export const getAllCampaigns = async (req: Request, res: Response, next: NextFun
 export const getCampaignById = async (
   req: Request<CampaignParams>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const campaign = await Campaign.findById(req.params.id);
@@ -60,7 +65,7 @@ export const getCampaignById = async (
       if (user) {
         const activeAccount = user.activeAccountId
           ? (user.connectedAccounts || []).find(
-              (acc: any) => acc._id.toString() === String(user.activeAccountId)
+              (acc: any) => acc._id.toString() === String(user.activeAccountId),
             )
           : null;
         const senderEmail = activeAccount?.email || user.email;
@@ -87,7 +92,7 @@ export const getCampaignById = async (
 export const deleteCampaignById = async (
   req: Request<CampaignParams>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const campaign = await Campaign.findById(req.params.id);
@@ -108,7 +113,7 @@ export const deleteCampaignById = async (
 export const updateCampaign = async (
   req: Request<CampaignParams, {}, UpdateCampaignBody>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const campaign = await Campaign.findById(req.params.id);
@@ -132,20 +137,18 @@ export const updateCampaign = async (
     const removeAttachments = req.body.removeAttachments as string | string[] | undefined;
     if (removeAttachments) {
       const toRemove = Array.isArray(removeAttachments) ? removeAttachments : [removeAttachments];
-      const currentAttachments = (updateData.attachments || campaign.attachments || []) as Array<{ storedName: string }>;
+      const currentAttachments = (updateData.attachments || campaign.attachments || []) as Array<{
+        storedName: string;
+      }>;
       for (const storedName of toRemove) {
         deleteSingleFile(campaign._id.toString(), storedName);
       }
-      updateData.attachments = currentAttachments.filter(
-        (a) => !toRemove.includes(a.storedName)
-      );
+      updateData.attachments = currentAttachments.filter((a) => !toRemove.includes(a.storedName));
     }
 
-    const updatedCampaign = await Campaign.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true }
-    );
+    const updatedCampaign = await Campaign.findByIdAndUpdate(req.params.id, updateData, {
+      new: true,
+    });
     res.json({ message: 'Campaign updated successfully', data: updatedCampaign });
   } catch (error) {
     next(error);

@@ -18,7 +18,7 @@ type HistoryRecord = {
 
 const fetchHistory = async (
   accessToken: string,
-  startHistoryId: string
+  startHistoryId: string,
 ): Promise<{ messages: HistoryMessage[]; newHistoryId: string | null }> => {
   const url = `${GMAIL_HISTORY_ENDPOINT}?startHistoryId=${startHistoryId}&historyTypes=messageAdded&labelId=INBOX`;
   const response = await fetch(url, {
@@ -27,13 +27,13 @@ const fetchHistory = async (
 
   if (!response.ok) return { messages: [], newHistoryId: null };
 
-  const data = await response.json() as {
+  const data = (await response.json()) as {
     history?: HistoryRecord[];
     historyId?: string;
   };
 
-  const messages: HistoryMessage[] = (data.history ?? []).flatMap(
-    (h) => (h.messagesAdded ?? []).map((m) => m.message)
+  const messages: HistoryMessage[] = (data.history ?? []).flatMap((h) =>
+    (h.messagesAdded ?? []).map((m) => m.message),
   );
 
   return { messages, newHistoryId: data.historyId ?? null };
@@ -41,14 +41,14 @@ const fetchHistory = async (
 
 const fetchMessageSnippet = async (
   accessToken: string,
-  messageId: string
+  messageId: string,
 ): Promise<{ snippet: string; gmailUrl: string }> => {
   const response = await fetch(
     `${GMAIL_MESSAGE_ENDPOINT}/${messageId}?format=metadata&metadataHeaders=Message-ID`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
+    { headers: { Authorization: `Bearer ${accessToken}` } },
   );
   if (!response.ok) return { snippet: '', gmailUrl: '' };
-  const data = await response.json() as {
+  const data = (await response.json()) as {
     snippet?: string;
     payload?: { headers?: { name: string; value: string }[] };
   };
@@ -84,19 +84,19 @@ export const handlePubSubWebhook = async (req: Request, res: Response): Promise<
     if (!user) return;
 
     const account = user.connectedAccounts.find(
-      (a) => a.provider === 'gmail' && a.email === emailAddress
+      (a) => a.provider === 'gmail' && a.email === emailAddress,
     );
     if (!account?.gmailHistoryId) return;
 
     const { messages, newHistoryId: latestHistoryId } = await fetchHistory(
       account.accessToken,
-      account.gmailHistoryId
+      account.gmailHistoryId,
     );
 
     if (latestHistoryId) {
       await User.findOneAndUpdate(
         { _id: user._id, 'connectedAccounts._id': account._id },
-        { $set: { 'connectedAccounts.$.gmailHistoryId': latestHistoryId } }
+        { $set: { 'connectedAccounts.$.gmailHistoryId': latestHistoryId } },
       );
     }
 

@@ -20,17 +20,13 @@ const processContent = (content: string, recipient: Recipient): string => {
     result = result.replace(new RegExp(`\\[${field}\\]`, 'g'), value || `Missing field ${field}`);
     result = result.replace(
       new RegExp(`\\{\\{${field}\\s*\\|\\|\\s*['"]([^'"]+)['"]\\}\\}`, 'g'),
-      value || `Missing field ${field}`
+      value || `Missing field ${field}`,
     );
   });
   return result;
 };
 
-const updateJobStatus = async (
-  campaignId: string,
-  jobId: string,
-  update: Partial<EmailJob>
-) => {
+const updateJobStatus = async (campaignId: string, jobId: string, update: Partial<EmailJob>) => {
   const setFields: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(update)) {
     setFields[`email_jobs.${jobId}.${key}`] = value;
@@ -45,7 +41,7 @@ const checkAndFinalizeCampaign = async (campaignId: string) => {
 
   const jobs = Object.values(campaign.email_jobs as Record<string, EmailJob>);
   const allDone = jobs.every(
-    (j) => j.status === 'sent' || j.status === 'failed' || j.status === 'cancelled'
+    (j) => j.status === 'sent' || j.status === 'failed' || j.status === 'cancelled',
   );
 
   if (!allDone) return;
@@ -93,7 +89,10 @@ export const startConsumer = async (maxRetries: number): Promise<void> => {
 
       if (!job.recipientData?.['Email']) {
         logger.error(`Job ${jobId} missing recipient email, marking as failed`);
-        await updateJobStatus(campaignId, jobId, { status: 'failed', error: 'Missing recipient email' });
+        await updateJobStatus(campaignId, jobId, {
+          status: 'failed',
+          error: 'Missing recipient email',
+        });
         channel.ack(msg);
         await checkAndFinalizeCampaign(campaignId);
         return;
@@ -137,17 +136,17 @@ export const startConsumer = async (maxRetries: number): Promise<void> => {
       const freshUser = await User.findById(user._id);
       if (freshUser) {
         const activeAcc = freshUser.connectedAccounts.find(
-          (a: any) => a._id.toString() === freshUser.activeAccountId?.toString() && a.provider === 'gmail'
+          (a: any) =>
+            a._id.toString() === freshUser.activeAccountId?.toString() && a.provider === 'gmail',
         );
         if (activeAcc && (!activeAcc.gmailWatchExpiry || activeAcc.gmailWatchExpiry < new Date())) {
           await setupGmailWatch(
             freshUser._id.toString(),
             activeAcc._id.toString(),
-            activeAcc.accessToken
+            activeAcc.accessToken,
           );
         }
       }
-
     } catch (err: any) {
       logger.error(`Job ${jobId} failed`, { error: err.message });
 

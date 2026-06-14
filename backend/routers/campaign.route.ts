@@ -15,7 +15,11 @@ import {
   updateCampaign,
 } from '../controllers/campaign.controller';
 import { sendCampaignBodySchema, campaignSendParamsSchema } from '../schema/send.schema';
-import { sendCampaign, cancelCampaign, getCampaignStatus } from '../controllers/campaign-send.controller';
+import {
+  sendCampaign,
+  cancelCampaign,
+  getCampaignStatus,
+} from '../controllers/campaign-send.controller';
 
 const router = express.Router();
 
@@ -35,54 +39,51 @@ const parseMultipartBody: express.RequestHandler = (req, _res, next) => {
   next();
 };
 
-router.post('/',
+router.post(
+  '/',
   verifyToken,
   upload.array('attachments', 10),
   parseMultipartBody,
   validateRequestBody(createCampaignBodySchema),
-  createCampaign
+  createCampaign,
 );
 
 router.get('/', verifyToken, getAllCampaigns);
 
-router.get('/:id',
-  verifyToken,
-  validateRequestParams(campaignParamsSchema),
-  getCampaignById
-);
+router.get('/:id', verifyToken, validateRequestParams(campaignParamsSchema), getCampaignById);
 
-router.put('/:id',
+router.put(
+  '/:id',
   verifyToken,
   validateRequestParams(campaignParamsSchema),
   upload.array('attachments', 10),
   parseMultipartBody,
   validateRequestBody(updateCampaignBodySchema),
-  updateCampaign
+  updateCampaign,
 );
 
-router.delete('/:id',
-  verifyToken,
-  validateRequestParams(campaignParamsSchema),
-  deleteCampaignById
-);
+router.delete('/:id', verifyToken, validateRequestParams(campaignParamsSchema), deleteCampaignById);
 
-router.post('/:id/send',
+router.post(
+  '/:id/send',
   verifyToken,
   validateRequestParams(campaignSendParamsSchema),
   validateRequestBody(sendCampaignBodySchema),
-  sendCampaign
+  sendCampaign,
 );
 
-router.post('/:id/cancel',
+router.post(
+  '/:id/cancel',
   verifyToken,
   validateRequestParams(campaignSendParamsSchema),
-  cancelCampaign
+  cancelCampaign,
 );
 
-router.get('/:id/status',
+router.get(
+  '/:id/status',
   verifyToken,
   validateRequestParams(campaignSendParamsSchema),
-  getCampaignStatus
+  getCampaignStatus,
 );
 
 export default router;
