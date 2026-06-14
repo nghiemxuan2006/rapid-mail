@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
-import User from '../models/user.model';
-import Campaign, { EmailJob } from '../models/campaign.model';
-import Reply from '../models/reply.model';
+import { EmailJob } from '../models/campaign.model';
+import { findCampaignsByUserIdFull } from '../repositories/campaign.repository';
 import logger from '../utils/wiston-log';
+import { findUserByConnectedAccountEmail, updateUserById } from '../repositories/user.repository';
+import { findReplyByMessageId, createReply } from '../repositories/reply.repository';
 
 const GMAIL_HISTORY_ENDPOINT = 'https://gmail.googleapis.com/gmail/v1/users/me/history';
 const GMAIL_MESSAGE_ENDPOINT = 'https://gmail.googleapis.com/gmail/v1/users/me/messages';
@@ -25,7 +26,10 @@ const fetchHistory = async (
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
-  if (!response.ok) return { messages: [], newHistoryId: null };
+  if (!response.ok) {
+    logger.warn('Gmail history fetch failed', { status: response.status, startHistoryId });
+    return { messages: [], newHistoryId: null };
+  }
 
   const data = (await response.json()) as {
     history?: HistoryRecord[];
@@ -47,7 +51,10 @@ const fetchMessageSnippet = async (
     `${GMAIL_MESSAGE_ENDPOINT}/${messageId}?format=metadata&metadataHeaders=Message-ID`,
     { headers: { Authorization: `Bearer ${accessToken}` } },
   );
-  if (!response.ok) return { snippet: '', gmailUrl: '' };
+  if (!response.ok) {
+    logger.warn('Gmail message fetch failed', { status: response.status, messageId });
+    return { snippet: '', gmailUrl: '' };
+  }
   const data = (await response.json()) as {
     snippet?: string;
     payload?: { headers?: { name: string; value: string }[] };
@@ -62,11 +69,14 @@ const fetchMessageSnippet = async (
 
 export const handlePubSubWebhook = async (req: Request, res: Response): Promise<void> => {
   // Pub/Sub always expects 200 quickly, or it will retry
-  res.status(200).send('ok');
+  res.status(200).json({ message: 'Webhook received', data: null });
 
   try {
     const message = req.body?.message;
-    if (!message?.data) return;
+    if (!message?.data) {
+      logger.warn('Pub/Sub webhook: missing message.data');
+      return;
+    }
 
     const decoded = JSON.parse(Buffer.from(message.data, 'base64').toString('utf-8')) as {
       emailAddress?: string;
@@ -74,42 +84,74 @@ export const handlePubSubWebhook = async (req: Request, res: Response): Promise<
     };
 
     const { emailAddress, historyId: newHistoryId } = decoded;
-    if (!emailAddress || !newHistoryId) return;
+    logger.info('Pub/Sub webhook received', { emailAddress, historyId: newHistoryId });
 
-    const user = await User.findOne({
-      connectedAccounts: {
-        $elemMatch: { provider: 'gmail', email: emailAddress },
-      },
-    });
-    if (!user) return;
+    if (!emailAddress || !newHistoryId) {
+      logger.warn('Pub/Sub webhook: missing emailAddress or historyId', { decoded });
+      return;
+    }
 
-    const account = user.connectedAccounts.find(
+    const user = await findUserByConnectedAccountEmail(emailAddress);
+    if (!user) {
+      logger.warn('Pub/Sub webhook: no user found for email', { emailAddress });
+      return;
+    }
+
+    const accountIndex = user.connectedAccounts.findIndex(
       (a) => a.provider === 'gmail' && a.email === emailAddress,
     );
-    if (!account?.gmailHistoryId) return;
+    if (accountIndex === -1) {
+      logger.warn('Pub/Sub webhook: gmail account not found in connectedAccounts', {
+        userId: user._id,
+        emailAddress,
+      });
+      return;
+    }
+    const account = user.connectedAccounts[accountIndex];
+    if (!account?.gmailHistoryId) {
+      logger.warn('Pub/Sub webhook: account has no gmailHistoryId', {
+        userId: user._id,
+        emailAddress,
+      });
+      return;
+    }
 
     const { messages, newHistoryId: latestHistoryId } = await fetchHistory(
       account.accessToken,
       account.gmailHistoryId,
     );
+    logger.info('Gmail history fetched', {
+      userId: user._id,
+      emailAddress,
+      messageCount: messages.length,
+      latestHistoryId,
+    });
 
     if (latestHistoryId) {
-      await User.findOneAndUpdate(
-        { _id: user._id, 'connectedAccounts._id': account._id },
-        { $set: { 'connectedAccounts.$.gmailHistoryId': latestHistoryId } },
-      );
+      await updateUserById(user._id.toString(), {
+        $set: { [`connectedAccounts.${accountIndex}.gmailHistoryId`]: latestHistoryId },
+      });
+      logger.info('gmailHistoryId updated', { userId: user._id, latestHistoryId });
     }
 
-    if (messages.length === 0) return;
+    if (messages.length === 0) {
+      logger.info('Pub/Sub webhook: no new messages in history', { userId: user._id });
+      return;
+    }
 
     const threadIds = messages.map((m) => m.threadId);
-    const campaigns = await Campaign.find({ user_id: user._id });
+    const campaigns = await findCampaignsByUserIdFull(user._id.toString());
+    logger.info('Campaigns loaded for thread matching', {
+      userId: user._id,
+      campaignCount: campaigns.length,
+      threadIds,
+    });
 
     type ThreadMatch = { campaignId: string; jobId: string; recipientEmail: string };
     const threadMap = new Map<string, ThreadMatch>();
 
     for (const campaign of campaigns) {
-      const jobs = campaign.email_jobs as Record<string, EmailJob>;
+      const jobs = (campaign.email_jobs ?? {}) as Record<string, EmailJob>;
       for (const [jobId, job] of Object.entries(jobs)) {
         if (job.threadId && threadIds.includes(job.threadId)) {
           threadMap.set(job.threadId, {
@@ -117,20 +159,34 @@ export const handlePubSubWebhook = async (req: Request, res: Response): Promise<
             jobId,
             recipientEmail: job.recipientData['Email'] ?? '',
           });
+          logger.info('Thread matched to campaign job', {
+            threadId: job.threadId,
+            campaignId: campaign._id,
+            jobId,
+            recipientEmail: job.recipientData['Email'],
+          });
         }
       }
     }
 
+    logger.info('Thread map built', { matchedThreads: threadMap.size, totalThreads: threadIds.length });
+
     for (const msg of messages) {
       const match = threadMap.get(msg.threadId);
-      if (!match) continue;
+      if (!match) {
+        logger.info('No campaign match for thread', { messageId: msg.id, threadId: msg.threadId });
+        continue;
+      }
 
-      const exists = await Reply.findOne({ replyMessageId: msg.id });
-      if (exists) continue;
+      const exists = await findReplyByMessageId(msg.id);
+      if (exists) {
+        logger.info('Reply already recorded, skipping', { messageId: msg.id });
+        continue;
+      }
 
       const { snippet, gmailUrl } = await fetchMessageSnippet(account.accessToken, msg.id);
 
-      await Reply.create({
+      await createReply({
         campaignId: match.campaignId,
         jobId: match.jobId,
         recipientEmail: match.recipientEmail,
@@ -143,9 +199,14 @@ export const handlePubSubWebhook = async (req: Request, res: Response): Promise<
         userId: user._id,
       });
 
-      logger.info('Reply saved', { replyMessageId: msg.id, recipientEmail: match.recipientEmail });
+      logger.info('Reply saved', {
+        messageId: msg.id,
+        threadId: msg.threadId,
+        recipientEmail: match.recipientEmail,
+        campaignId: match.campaignId,
+      });
     }
-  } catch (err: any) {
-    logger.error('Error processing Pub/Sub webhook', { error: err.message });
+  } catch (err: unknown) {
+    logger.error('Error processing Pub/Sub webhook', err);
   }
 };

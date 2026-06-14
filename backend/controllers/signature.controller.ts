@@ -4,7 +4,7 @@ import {
   importGmailSignaturesByAccount,
   listSignatures,
   getDefaultSignatureForAccount,
-  createSignature,
+  createSignatureForUser,
   updateSignature,
   deleteSignature,
   // legacy
@@ -92,7 +92,7 @@ export const createSignatureHandler = async (
 ) => {
   try {
     const userId = requireUserId(req);
-    const signature = await createSignature(userId, req.body);
+    const signature = await createSignatureForUser(userId, req.body);
     res.status(201).json({ message: 'Signature created', data: signature });
   } catch (error) {
     next(error);

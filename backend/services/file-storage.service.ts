@@ -1,4 +1,5 @@
 import fs from 'fs';
+import fsp from 'fs/promises';
 import path from 'path';
 import settings from '../config/env';
 import { BAD_REQUEST_ERROR } from '../utils/error';
@@ -9,68 +10,78 @@ export const ensureStorageDir = () => {
   fs.mkdirSync(ATTACHMENTS_DIR, { recursive: true });
 };
 
-const buildFilePath = (campaignId: string, filename: string) => {
-  return path.join(ATTACHMENTS_DIR, campaignId, filename);
-};
+const buildFilePath = (campaignId: string, filename: string) =>
+  path.join(ATTACHMENTS_DIR, campaignId, filename);
 
-const buildCampaignDir = (campaignId: string) => {
-  return path.join(ATTACHMENTS_DIR, campaignId);
-};
+const buildCampaignDir = (campaignId: string) =>
+  path.join(ATTACHMENTS_DIR, campaignId);
 
-export const saveFiles = (campaignId: string, files: Express.Multer.File[]) => {
+export const saveFiles = async (
+  campaignId: string,
+  files: Express.Multer.File[],
+): Promise<{ filename: string; storedName: string; mimeType: string; size: number }[]> => {
   const campaignDir = buildCampaignDir(campaignId);
-  fs.mkdirSync(campaignDir, { recursive: true });
+  await fsp.mkdir(campaignDir, { recursive: true });
 
-  return files.map((file) => {
-    const uniqueName = `${Date.now()}_${file.originalname}`;
-    const filePath = path.join(campaignDir, uniqueName);
-    fs.writeFileSync(filePath, file.buffer);
-
-    return {
-      filename: file.originalname,
-      storedName: uniqueName,
-      mimeType: file.mimetype,
-      size: file.size,
-    };
-  });
+  return Promise.all(
+    files.map(async (file) => {
+      const uniqueName = `${Date.now()}_${file.originalname}`;
+      await fsp.writeFile(path.join(campaignDir, uniqueName), file.buffer);
+      return {
+        filename: file.originalname,
+        storedName: uniqueName,
+        mimeType: file.mimetype,
+        size: file.size,
+      };
+    }),
+  );
 };
 
-export const readFile = (campaignId: string, storedName: string): Buffer => {
+export const readFile = async (campaignId: string, storedName: string): Promise<Buffer> => {
   const filePath = buildFilePath(campaignId, storedName);
-  if (!fs.existsSync(filePath)) {
+  try {
+    return await fsp.readFile(filePath);
+  } catch {
     throw new BAD_REQUEST_ERROR(`Attachment file not found: ${storedName}`);
   }
-  return fs.readFileSync(filePath);
 };
 
-export const deleteFiles = (campaignId: string) => {
+export const deleteFiles = async (campaignId: string): Promise<void> => {
   const campaignDir = buildCampaignDir(campaignId);
-  if (fs.existsSync(campaignDir)) {
-    fs.rmSync(campaignDir, { recursive: true, force: true });
+  try {
+    await fsp.rm(campaignDir, { recursive: true, force: true });
+  } catch {
+    // directory may not exist — ignore
   }
 };
 
-export const deleteSingleFile = (campaignId: string, storedName: string) => {
+export const deleteSingleFile = async (campaignId: string, storedName: string): Promise<void> => {
   const filePath = buildFilePath(campaignId, storedName);
-  if (fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
+  try {
+    await fsp.unlink(filePath);
+  } catch {
+    // file may not exist — ignore
   }
 };
 
 const buildConfigPath = (campaignId: string) =>
   path.join(ATTACHMENTS_DIR, campaignId, 'config.json');
 
-export const writeCampaignConfig = (campaignId: string, config: { signature: string }): void => {
+export const writeCampaignConfig = async (
+  campaignId: string,
+  config: { signature: string },
+): Promise<void> => {
   const campaignDir = buildCampaignDir(campaignId);
-  fs.mkdirSync(campaignDir, { recursive: true });
-  fs.writeFileSync(buildConfigPath(campaignId), JSON.stringify(config), 'utf-8');
+  await fsp.mkdir(campaignDir, { recursive: true });
+  await fsp.writeFile(buildConfigPath(campaignId), JSON.stringify(config), 'utf-8');
 };
 
-export const readCampaignConfig = (campaignId: string): { signature: string } | null => {
-  const configPath = buildConfigPath(campaignId);
-  if (!fs.existsSync(configPath)) return null;
+export const readCampaignConfig = async (
+  campaignId: string,
+): Promise<{ signature: string } | null> => {
   try {
-    return JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { signature: string };
+    const raw = await fsp.readFile(buildConfigPath(campaignId), 'utf-8');
+    return JSON.parse(raw) as { signature: string };
   } catch {
     return null;
   }

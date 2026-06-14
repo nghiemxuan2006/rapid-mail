@@ -1,6 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
-import Reply from '../models/reply.model';
+import {
+  findReplies,
+  markReplyAsRead,
+} from '../repositories/reply.repository';
 
 export const getReplies = async (
   req: Request,
@@ -9,18 +12,14 @@ export const getReplies = async (
 ): Promise<void> => {
   try {
     const userId = new mongoose.Types.ObjectId(req.user?.sub as string);
-    const { unread, campaignId } = req.query;
+    const { campaignId, unread } = req.query;
 
-    const filter: Record<string, unknown> = { userId };
-    if (unread === 'true') filter.isRead = false;
-    if (campaignId) filter.campaignId = campaignId;
+    const replies = await findReplies(userId, {
+      campaignId: campaignId as string | undefined,
+      unread: unread === 'true',
+    });
 
-    const replies = await Reply.find(filter)
-      .sort({ receivedAt: -1 })
-      .limit(50)
-      .populate('campaignId', 'name');
-
-    res.json(replies);
+    res.json({ message: 'Replies fetched successfully', data: replies });
   } catch (err) {
     next(err);
   }
@@ -33,10 +32,11 @@ export const markReplyRead = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const userId = req.user?.sub;
+    const userId = req.user?.sub as string;
 
-    await Reply.findOneAndUpdate({ _id: id, userId }, { isRead: true });
-    res.json({ success: true });
+    const reply = await markReplyAsRead(id, userId);
+
+    res.json({ message: 'Reply marked as read', data: reply });
   } catch (err) {
     next(err);
   }

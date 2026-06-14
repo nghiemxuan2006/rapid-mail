@@ -1,9 +1,19 @@
 import * as jwt from 'jsonwebtoken';
-import mongoose from 'mongoose';
 import settings from '../config/env';
 import { BAD_REQUEST_ERROR, UNAUTHORIZED_ERROR } from '../utils/error';
-import User, { UserDocument } from '../models/user.model';
+import { UserDocument } from '../models/user.model';
 import { sendRequest } from '../utils/send-request';
+import {
+  findUserById,
+  findUserByEmail,
+  upsertUserByEmail,
+  updateUserById,
+  updateUserConnectedAccountToken,
+  pushConnectedAccount,
+  updateConnectedAccountTokens,
+  setActiveAccountId,
+  saveUser,
+} from '../repositories/user.repository';
 
 type GoogleTokenResponse = {
   access_token: string;
@@ -57,12 +67,7 @@ const exchangeAuthorizationCode = async (authorizeCode: string): Promise<GoogleT
     grant_type: 'authorization_code',
   };
 
-  const response = await sendRequest({
-    method: 'POST',
-    url: GOOGLE_TOKEN_ENDPOINT,
-    data: payload,
-  });
-
+  const response = await sendRequest({ method: 'POST', url: GOOGLE_TOKEN_ENDPOINT, data: payload });
   const data = response.data as Partial<GoogleTokenResponse> & { error_description?: string };
 
   if (response.status >= 400) {
@@ -89,9 +94,7 @@ const fetchGoogleProfile = async (accessToken: string): Promise<GoogleProfile> =
   const response = await sendRequest({
     method: 'GET',
     url: GOOGLE_USERINFO_ENDPOINT,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
+    headers: { Authorization: `Bearer ${accessToken}` },
   });
 
   const data = response.data as { email?: string; name?: string; error?: { message?: string } };
@@ -104,43 +107,26 @@ const fetchGoogleProfile = async (accessToken: string): Promise<GoogleProfile> =
     throw new UNAUTHORIZED_ERROR('Google profile does not include an email');
   }
 
-  return {
-    email: data.email,
-    name: data.name || data.email,
-  };
+  return { email: data.email, name: data.name || data.email };
 };
 
 const persistUser = async (
   profile: GoogleProfile,
   tokens: GoogleTokenResponse,
 ): Promise<UserDocument> => {
-  const update = {
+  const user = await upsertUserByEmail(profile.email, {
     name: profile.name,
     email: profile.email,
     googleAccessToken: tokens.access_token,
     googleRefreshToken: tokens.refresh_token,
-  };
-
-  const user = await User.findOneAndUpdate({ email: profile.email }, update, {
-    new: true,
-    upsert: true,
-    setDefaultsOnInsert: true,
   });
 
-  if (!user) {
-    throw new BAD_REQUEST_ERROR('Unable to persist user');
-  }
-
+  if (!user) throw new BAD_REQUEST_ERROR('Unable to persist user');
   return user;
 };
 
 const createAppTokens = (user: UserDocument) => {
-  const payload = {
-    sub: user._id.toString(),
-    email: user.email,
-    name: user.name,
-  };
-
+  const payload = { sub: user._id.toString(), email: user.email, name: user.name };
   const secret: jwt.Secret = settings.JWT_SECRET_KEY || 'fallback-secret';
 
   const accessToken = jwt.sign(payload, secret, {
@@ -157,33 +143,21 @@ const verifyRefreshToken = (token: string) => {
   try {
     const secret = settings.JWT_SECRET_KEY || 'fallback-secret';
     const decoded = jwt.verify(token, secret) as jwt.JwtPayload & { sub?: string; type?: string };
-
-    if (decoded.type !== 'refresh') {
-      throw new UNAUTHORIZED_ERROR('Token is not a refresh token');
-    }
-
+    if (decoded.type !== 'refresh') throw new UNAUTHORIZED_ERROR('Token is not a refresh token');
     return decoded;
-  } catch (error) {
+  } catch {
     throw new UNAUTHORIZED_ERROR('Invalid or expired refresh token');
   }
 };
 
 const refreshAppToken = async (refreshToken: string) => {
-  if (!refreshToken) {
-    throw new BAD_REQUEST_ERROR('refresh_token is required');
-  }
+  if (!refreshToken) throw new BAD_REQUEST_ERROR('refresh_token is required');
 
   const decoded = verifyRefreshToken(refreshToken);
+  if (!decoded.sub) throw new UNAUTHORIZED_ERROR('Refresh token missing subject');
 
-  if (!decoded.sub) {
-    throw new UNAUTHORIZED_ERROR('Refresh token missing subject');
-  }
-
-  const user = await User.findById(decoded.sub);
-
-  if (!user) {
-    throw new UNAUTHORIZED_ERROR('User not found');
-  }
+  const user = await findUserById(decoded.sub);
+  if (!user) throw new UNAUTHORIZED_ERROR('User not found');
 
   return createAppTokens(user);
 };
@@ -192,33 +166,23 @@ const loginWithGoogle = async (authorizeCode: string) => {
   const googleTokens = await exchangeAuthorizationCode(authorizeCode);
   const profile = await fetchGoogleProfile(googleTokens.access_token);
   const user = await persistUser(profile, googleTokens);
-  const appTokens = createAppTokens(user);
-
-  return {
-    ...appTokens,
-  };
+  return createAppTokens(user);
 };
 
-// Verify access token
 const verifyAccessToken = (token: string) => {
   try {
     const secret = settings.JWT_SECRET_KEY || 'fallback-secret';
     return jwt.verify(token, secret);
-  } catch (error) {
+  } catch {
     throw new UNAUTHORIZED_ERROR('Invalid or expired access token');
   }
 };
 
 const getUserProfile = async (userId: string) => {
-  if (!userId) {
-    throw new UNAUTHORIZED_ERROR('User ID not found in token');
-  }
+  if (!userId) throw new UNAUTHORIZED_ERROR('User ID not found in token');
 
-  const user = await User.findById(userId);
-
-  if (!user) {
-    throw new UNAUTHORIZED_ERROR('User not found in database');
-  }
+  const user = await findUserById(userId);
+  if (!user) throw new UNAUTHORIZED_ERROR('User not found in database');
 
   return {
     email: user.email,
@@ -278,71 +242,57 @@ const exchangeMicrosoftAuthorizationCode = async (
 };
 
 const extractMicrosoftProfile = (idToken: string | undefined): MicrosoftProfile => {
-  if (!idToken) {
-    throw new BAD_REQUEST_ERROR('Microsoft did not return id_token');
-  }
+  if (!idToken) throw new BAD_REQUEST_ERROR('Microsoft did not return id_token');
 
   const payload = idToken.split('.')[1];
-  if (!payload) {
-    throw new BAD_REQUEST_ERROR('Invalid id_token format');
-  }
+  if (!payload) throw new BAD_REQUEST_ERROR('Invalid id_token format');
 
   const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf-8'));
   const email = decoded.email || decoded.preferred_username || decoded.upn;
-
-  if (!email) {
-    throw new BAD_REQUEST_ERROR('Microsoft id_token does not include an email');
-  }
+  if (!email) throw new BAD_REQUEST_ERROR('Microsoft id_token does not include an email');
 
   return { email, displayName: decoded.name || email };
 };
+
+const mapAccounts = (connectedAccounts: any[]) =>
+  connectedAccounts.map((acc: any) => ({
+    id: acc._id.toString(),
+    email: acc.email,
+    provider: acc.provider,
+  }));
 
 const connectGmailAccount = async (userId: string, authorizeCode: string) => {
   const googleTokens = await exchangeAuthorizationCode(authorizeCode);
   const profile = await fetchGoogleProfile(googleTokens.access_token);
 
-  const user = await User.findById(userId);
+  const user = await findUserById(userId);
   if (!user) throw new UNAUTHORIZED_ERROR('User not found');
 
-  const existingAccounts = user.connectedAccounts || [];
-  const alreadyConnected = existingAccounts.some(
+  const alreadyConnected = (user.connectedAccounts || []).some(
     (acc: any) => acc.email === profile.email && acc.provider === 'gmail',
   );
 
   if (alreadyConnected) {
-    await User.findByIdAndUpdate(
+    await updateConnectedAccountTokens(
       userId,
-      {
-        $set: {
-          'connectedAccounts.$[elem].accessToken': googleTokens.access_token,
-          'connectedAccounts.$[elem].refreshToken': googleTokens.refresh_token,
-        },
-      },
-      {
-        arrayFilters: [{ 'elem.email': profile.email, 'elem.provider': 'gmail' }],
-      },
+      profile.email,
+      'gmail',
+      googleTokens.access_token,
+      googleTokens.refresh_token,
     );
   } else {
-    await User.findByIdAndUpdate(userId, {
-      $push: {
-        connectedAccounts: {
-          email: profile.email,
-          provider: 'gmail',
-          accessToken: googleTokens.access_token,
-          refreshToken: googleTokens.refresh_token,
-        },
-      },
+    await pushConnectedAccount(userId, {
+      email: profile.email,
+      provider: 'gmail',
+      accessToken: googleTokens.access_token,
+      refreshToken: googleTokens.refresh_token,
     });
   }
 
-  const updatedUser = await User.findById(userId);
+  const updatedUser = await findUserById(userId);
   return {
     activeAccountId: updatedUser?.activeAccountId || null,
-    connectedAccounts: (updatedUser?.connectedAccounts || []).map((acc: any) => ({
-      id: acc._id.toString(),
-      email: acc.email,
-      provider: acc.provider,
-    })),
+    connectedAccounts: mapAccounts(updatedUser?.connectedAccounts || []),
   };
 };
 
@@ -350,53 +300,39 @@ const connectOutlookAccount = async (userId: string, authorizeCode: string) => {
   const msTokens = await exchangeMicrosoftAuthorizationCode(authorizeCode);
   const profile = extractMicrosoftProfile(msTokens.id_token);
 
-  const user = await User.findById(userId);
+  const user = await findUserById(userId);
   if (!user) throw new UNAUTHORIZED_ERROR('User not found');
 
-  const existingAccounts = user.connectedAccounts || [];
-  const alreadyConnected = existingAccounts.some(
+  const alreadyConnected = (user.connectedAccounts || []).some(
     (acc: any) => acc.email === profile.email && acc.provider === 'outlook',
   );
 
   if (alreadyConnected) {
-    await User.findByIdAndUpdate(
+    await updateConnectedAccountTokens(
       userId,
-      {
-        $set: {
-          'connectedAccounts.$[elem].accessToken': msTokens.access_token,
-          'connectedAccounts.$[elem].refreshToken': msTokens.refresh_token,
-        },
-      },
-      {
-        arrayFilters: [{ 'elem.email': profile.email, 'elem.provider': 'outlook' }],
-      },
+      profile.email,
+      'outlook',
+      msTokens.access_token,
+      msTokens.refresh_token,
     );
   } else {
-    await User.findByIdAndUpdate(userId, {
-      $push: {
-        connectedAccounts: {
-          email: profile.email,
-          provider: 'outlook',
-          accessToken: msTokens.access_token,
-          refreshToken: msTokens.refresh_token,
-        },
-      },
+    await pushConnectedAccount(userId, {
+      email: profile.email,
+      provider: 'outlook',
+      accessToken: msTokens.access_token,
+      refreshToken: msTokens.refresh_token,
     });
   }
 
-  const updatedUser = await User.findById(userId);
+  const updatedUser = await findUserById(userId);
   return {
     activeAccountId: updatedUser?.activeAccountId || null,
-    connectedAccounts: (updatedUser?.connectedAccounts || []).map((acc: any) => ({
-      id: acc._id.toString(),
-      email: acc.email,
-      provider: acc.provider,
-    })),
+    connectedAccounts: mapAccounts(updatedUser?.connectedAccounts || []),
   };
 };
 
 const disconnectAccount = async (userId: string, accountId: string) => {
-  const user = await User.findById(userId);
+  const user = await findUserById(userId);
   if (!user) throw new UNAUTHORIZED_ERROR('User not found');
 
   user.connectedAccounts = (user.connectedAccounts || []).filter(
@@ -408,30 +344,24 @@ const disconnectAccount = async (userId: string, accountId: string) => {
   }
 
   user.markModified('connectedAccounts');
-  await user.save();
+  await saveUser(user);
 
   return {
     activeAccountId: user.activeAccountId || null,
-    connectedAccounts: user.connectedAccounts.map((acc: any) => ({
-      id: acc._id.toString(),
-      email: acc.email,
-      provider: acc.provider,
-    })),
+    connectedAccounts: mapAccounts(user.connectedAccounts),
   };
 };
 
 const setActiveAccount = async (userId: string, accountId: string) => {
-  const user = await User.findById(userId);
+  const user = await findUserById(userId);
   if (!user) throw new BAD_REQUEST_ERROR('User not found');
 
   const accountExists = (user.connectedAccounts || []).some(
     (acc: any) => acc._id.toString() === accountId,
   );
-
   if (!accountExists) throw new BAD_REQUEST_ERROR('Connected account not found');
 
-  await User.findByIdAndUpdate(userId, { $set: { activeAccountId: accountId } });
-
+  await setActiveAccountId(userId, accountId);
   return { activeAccountId: accountId };
 };
 

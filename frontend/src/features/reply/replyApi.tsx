@@ -20,7 +20,8 @@ export const fetchUnreadReplies = async (): Promise<Reply[]> => {
     }
   }
 
-  return await sendRequest('replies', 'GET', null, thunkApi)
+  const res = await sendRequest('replies', 'GET', null, thunkApi)
+  return res.data
 }
 
 export const markReplyRead = async (id: string): Promise<void> => {

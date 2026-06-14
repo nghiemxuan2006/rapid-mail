@@ -48,7 +48,7 @@ const attemptTokenRefresh = async (originalRequest: any, refresh_token: string) 
 
     try {
         const response = await axios.post(baseUrl + '/v1/auth/refresh-token', {}, config);
-        const newAccessToken = response.data.accessToken;
+        const newAccessToken = response.data.data.accessToken;
         localStorage.setItem('access_token', newAccessToken);
         originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
         return apiService(originalRequest);

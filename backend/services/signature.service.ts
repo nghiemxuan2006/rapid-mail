@@ -1,7 +1,17 @@
 import { cleanSignatureHtml, inlineSignatureImages } from '../utils/clean-signature-html';
-import User, { UserDocument } from '../models/user.model';
-import Signature from '../models/signature.model';
+import { UserDocument, ConnectedAccount } from '../models/user.model';
 import { UNAUTHORIZED_ERROR, BAD_REQUEST_ERROR, NOT_FOUND_ERROR } from '../utils/error';
+import {
+  findSignaturesByUserId,
+  findDefaultSignatureByEmail,
+  findSignatureByEmail,
+  findDefaultSignature,
+  createSignature,
+  updateSignatureByUserAndId,
+  deleteSignatureByUserAndId,
+  clearDefaultSignatures,
+} from '../repositories/signature.repository';
+import { findUserById, saveUser, updateUserConnectedAccountToken } from '../repositories/user.repository';
 import settings from '../config/env';
 import { sendRequest } from '../utils/send-request';
 import { CreateSignatureBody, UpdateMySignatureBody } from '../schema/signature.schema';
@@ -54,7 +64,7 @@ export const importGmailSignatures = async (user: UserDocument) => {
   if (response.status === 401) {
     accessToken = await refreshGoogleAccessToken(user.googleRefreshToken);
     user.googleAccessToken = accessToken;
-    await user.save();
+    await saveUser(user);
 
     response = await sendRequest({
       method: 'GET',
@@ -77,11 +87,11 @@ export const importGmailSignatures = async (user: UserDocument) => {
 // ─── Gmail import for a specific connected account ───────────────────────────
 
 export const importGmailSignaturesByAccount = async (userId: string, accountId: string) => {
-  const user = await User.findById(userId);
+  const user = await findUserById(userId);
   if (!user) throw new UNAUTHORIZED_ERROR('User not found');
 
-  const account = (user.connectedAccounts as any[]).find(
-    (acc: any) => acc._id.toString() === accountId && acc.provider === 'gmail',
+  const account = user.connectedAccounts.find(
+    (acc: ConnectedAccount) => acc._id.toString() === accountId && acc.provider === 'gmail',
   );
 
   if (!account) throw new BAD_REQUEST_ERROR('Gmail connected account not found');
@@ -101,10 +111,7 @@ export const importGmailSignaturesByAccount = async (userId: string, accountId: 
     accessToken = await refreshGoogleAccessToken(account.refreshToken);
 
     // persist refreshed token back into the sub-document
-    await User.findOneAndUpdate(
-      { _id: userId, 'connectedAccounts._id': account._id },
-      { $set: { 'connectedAccounts.$.accessToken': accessToken } },
-    );
+    await updateUserConnectedAccountToken(userId, account._id, accessToken);
 
     response = await tryFetch(accessToken);
   }
@@ -138,7 +145,7 @@ export const getSignatureList = async (user: UserDocument, isAlias: boolean = fa
   if (response.status === 401) {
     accessToken = await refreshGoogleAccessToken(user.googleRefreshToken);
     user.googleAccessToken = accessToken;
-    await user.save();
+    await saveUser(user);
 
     response = await sendRequest({
       method: 'GET',
@@ -162,7 +169,7 @@ export const updateSignatureService = async (
   sendAsEmail: string,
   signature: string,
 ) => {
-  const user = await User.findById(userId);
+  const user = await findUserById(userId);
   if (!user) throw new UNAUTHORIZED_ERROR('User not found');
 
   let accessToken = user.googleAccessToken;
@@ -179,7 +186,7 @@ export const updateSignatureService = async (
   if (response.status === 401) {
     accessToken = await refreshGoogleAccessToken(user.googleRefreshToken);
     user.googleAccessToken = accessToken;
-    await user.save();
+    await saveUser(user);
 
     response = await sendRequest({
       method: 'PATCH',
@@ -202,41 +209,37 @@ export const updateSignatureService = async (
 // ─── App-managed signatures (MongoDB) ────────────────────────────────────────
 
 export const listSignatures = async (userId: string) => {
-  return Signature.find({ userId }).sort({ isDefault: -1, createdAt: -1 }).lean();
+  return findSignaturesByUserId(userId);
 };
 
 export const getDefaultSignatureForAccount = async (userId: string, accountId?: string) => {
   if (accountId) {
-    const user = await User.findById(userId).lean();
-    const account = (user?.connectedAccounts as any[])?.find(
-      (acc: any) => acc._id.toString() === accountId,
+    const user = await findUserById(userId);
+    const account = user?.connectedAccounts?.find(
+      (acc: ConnectedAccount) => acc._id.toString() === accountId,
     );
     if (account?.email) {
-      const sig = await Signature.findOne({
-        userId,
-        sourceEmail: account.email,
-        isDefault: true,
-      }).lean();
+      const sig = await findDefaultSignatureByEmail(userId, account.email);
       if (sig) return sig;
       // Fallback: any signature linked to this account
-      const fallback = await Signature.findOne({ userId, sourceEmail: account.email }).lean();
+      const fallback = await findSignatureByEmail(userId, account.email);
       if (fallback) return fallback;
     }
   }
   // Fallback: global default
-  return Signature.findOne({ userId, isDefault: true }).lean();
+  return findDefaultSignature(userId);
 };
 
-export const createSignature = async (userId: string, body: CreateSignatureBody) => {
+export const createSignatureForUser = async (userId: string, body: CreateSignatureBody) => {
   if (body.isDefault) {
-    await Signature.updateMany({ userId }, { isDefault: false });
+    await clearDefaultSignatures(userId);
   }
 
   if (body.content) {
     body.content = await inlineSignatureImages(body.content);
   }
 
-  const signature = await Signature.create({ userId, ...body });
+  const signature = await createSignature(userId, body);
   return signature;
 };
 
@@ -246,25 +249,21 @@ export const updateSignature = async (
   body: UpdateMySignatureBody,
 ) => {
   if (body.isDefault) {
-    await Signature.updateMany({ userId }, { isDefault: false });
+    await clearDefaultSignatures(userId);
   }
 
   if (body.content) {
     body.content = await inlineSignatureImages(body.content);
   }
 
-  const signature = await Signature.findOneAndUpdate(
-    { _id: signatureId, userId },
-    { $set: body },
-    { new: true },
-  );
+  const signature = await updateSignatureByUserAndId(userId, signatureId, body);
 
   if (!signature) throw new NOT_FOUND_ERROR('Signature not found');
   return signature;
 };
 
 export const deleteSignature = async (userId: string, signatureId: string) => {
-  const signature = await Signature.findOneAndDelete({ _id: signatureId, userId });
+  const signature = await deleteSignatureByUserAndId(userId, signatureId);
   if (!signature) throw new NOT_FOUND_ERROR('Signature not found');
   return signature;
 };

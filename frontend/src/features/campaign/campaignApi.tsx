@@ -63,7 +63,7 @@ type SendCampaignInput =
     | { id: string; sendMode: 'schedule_all'; scheduledAt: string }
     | { id: string; sendMode: 'schedule_individual'; scheduledTimes: Record<string, string> }
 
-export const sendCampaignApi = createAsyncThunk<{ message: string; jobCount: number }, SendCampaignInput>(
+export const sendCampaignApi = createAsyncThunk<{ jobCount: number }, SendCampaignInput>(
     'api/send-campaign',
     async (payload, thunkApi) => {
         const { id, ...body } = payload
@@ -72,7 +72,7 @@ export const sendCampaignApi = createAsyncThunk<{ message: string; jobCount: num
     }
 )
 
-export const cancelCampaignApi = createAsyncThunk<{ message: string; cancelledCount: number }, { id: string }>(
+export const cancelCampaignApi = createAsyncThunk<{ cancelledCount: number }, { id: string }>(
     'api/cancel-campaign',
     async (payload, thunkApi) => {
         const res = await sendRequest(`campaigns/${payload.id}/cancel`, 'POST', null, thunkApi)

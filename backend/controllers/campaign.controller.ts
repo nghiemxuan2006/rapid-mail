@@ -8,8 +8,15 @@ import {
   deleteSingleFile,
   readCampaignConfig,
 } from '../services/file-storage.service';
-import User from '../models/user.model';
-import Signature from '../models/signature.model';
+import { findUserById } from '../repositories/user.repository';
+import { findSignatureByEmail } from '../repositories/signature.repository';
+import {
+  findCampaignById,
+  findCampaignsByUserId,
+  updateCampaignById,
+  deleteCampaignById as deleteCampaignByIdRepo,
+  saveCampaign,
+} from '../repositories/campaign.repository';
 
 export const createCampaign = async (
   req: Request<{}, {}, CreateCampaignBody>,
@@ -19,12 +26,12 @@ export const createCampaign = async (
   try {
     const { name, subject, content, recipients } = req.body;
     const newCampaign = new Campaign({ user_id: req.user.sub, name, subject, content, recipients });
-    const savedCampaign = await newCampaign.save();
+    const savedCampaign = await saveCampaign(newCampaign);
 
     const files = req.files as Express.Multer.File[] | undefined;
     if (files && files.length > 0) {
-      savedCampaign.attachments = saveFiles(savedCampaign._id.toString(), files);
-      await savedCampaign.save();
+      savedCampaign.attachments = await saveFiles(savedCampaign._id.toString(), files);
+      await saveCampaign(savedCampaign);
     }
 
     res.status(201).json({ message: 'Campaign created successfully', data: savedCampaign });
@@ -35,9 +42,7 @@ export const createCampaign = async (
 
 export const getAllCampaigns = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const campaigns = await Campaign.find({ user_id: req.user.sub })
-      .select('name status recipients createdAt')
-      .sort({ createdAt: -1 });
+    const campaigns = await findCampaignsByUserId(req.user.sub);
     res.json({ message: 'Campaigns retrieved successfully', data: campaigns });
   } catch (error) {
     next(error);
@@ -50,7 +55,7 @@ export const getCampaignById = async (
   next: NextFunction,
 ) => {
   try {
-    const campaign = await Campaign.findById(req.params.id);
+    const campaign = await findCampaignById(req.params.id);
     if (!campaign) {
       throw new NOT_FOUND_ERROR('Campaign not found');
     }
@@ -61,7 +66,7 @@ export const getCampaignById = async (
     let signature = '';
 
     if (campaign.status === 'draft') {
-      const user = await User.findById(req.user.sub);
+      const user = await findUserById(req.user.sub);
       if (user) {
         const activeAccount = user.activeAccountId
           ? (user.connectedAccounts || []).find(
@@ -69,14 +74,14 @@ export const getCampaignById = async (
             )
           : null;
         const senderEmail = activeAccount?.email || user.email;
-        const matchedSignature = await Signature.findOne({
-          userId: campaign.user_id,
-          sourceEmail: senderEmail,
-        }).lean();
+        const matchedSignature = await findSignatureByEmail(
+          campaign.user_id.toString(),
+          senderEmail,
+        );
         signature = matchedSignature?.content ?? '';
       }
     } else {
-      const config = readCampaignConfig(campaign._id.toString());
+      const config = await readCampaignConfig(campaign._id.toString());
       signature = config?.signature ?? '';
     }
 
@@ -95,15 +100,15 @@ export const deleteCampaignById = async (
   next: NextFunction,
 ) => {
   try {
-    const campaign = await Campaign.findById(req.params.id);
+    const campaign = await findCampaignById(req.params.id);
     if (!campaign) {
       throw new NOT_FOUND_ERROR('Campaign not found');
     }
     if (campaign.user_id.toString() !== req.user.sub) {
       throw new NOT_FOUND_ERROR('You do not have permission to delete this campaign');
     }
-    deleteFiles(campaign._id.toString());
-    await Campaign.findByIdAndDelete(req.params.id);
+    await deleteFiles(campaign._id.toString());
+    await deleteCampaignByIdRepo(req.params.id);
     res.json({ message: 'Campaign deleted successfully' });
   } catch (error) {
     next(error);
@@ -116,7 +121,7 @@ export const updateCampaign = async (
   next: NextFunction,
 ) => {
   try {
-    const campaign = await Campaign.findById(req.params.id);
+    const campaign = await findCampaignById(req.params.id);
     if (!campaign) {
       throw new NOT_FOUND_ERROR('Campaign not found');
     }
@@ -129,7 +134,7 @@ export const updateCampaign = async (
 
     const files = req.files as Express.Multer.File[] | undefined;
     if (files && files.length > 0) {
-      const newAttachments = saveFiles(campaign._id.toString(), files);
+      const newAttachments = await saveFiles(campaign._id.toString(), files);
       updateData.attachments = [...(campaign.attachments || []), ...newAttachments];
     }
 
@@ -141,14 +146,12 @@ export const updateCampaign = async (
         storedName: string;
       }>;
       for (const storedName of toRemove) {
-        deleteSingleFile(campaign._id.toString(), storedName);
+        await deleteSingleFile(campaign._id.toString(), storedName);
       }
       updateData.attachments = currentAttachments.filter((a) => !toRemove.includes(a.storedName));
     }
 
-    const updatedCampaign = await Campaign.findByIdAndUpdate(req.params.id, updateData, {
-      new: true,
-    });
+    const updatedCampaign = await updateCampaignById(req.params.id, updateData);
     res.json({ message: 'Campaign updated successfully', data: updatedCampaign });
   } catch (error) {
     next(error);

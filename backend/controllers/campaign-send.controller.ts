@@ -1,12 +1,13 @@
 import { NextFunction, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import Campaign, { EmailJob } from '../models/campaign.model';
+import { EmailJob } from '../models/campaign.model';
 import { publishEmailJob } from '../services/rabbitmq.service';
 import { SendCampaignBody, CampaignSendParams } from '../schema/send.schema';
 import { BAD_REQUEST_ERROR, NOT_FOUND_ERROR, UNAUTHORIZED_ERROR } from '../utils/error';
-import User from '../models/user.model';
-import Signature from '../models/signature.model';
+import { findSignatureByEmail } from '../repositories/signature.repository';
 import { writeCampaignConfig } from '../services/file-storage.service';
+import { findCampaignById, saveCampaign } from '../repositories/campaign.repository';
+import { findUserById } from '../repositories/user.repository';
 
 export const sendCampaign = async (
   req: Request<CampaignSendParams, {}, SendCampaignBody>,
@@ -14,7 +15,7 @@ export const sendCampaign = async (
   next: NextFunction,
 ) => {
   try {
-    const campaign = await Campaign.findById(req.params.id);
+    const campaign = await findCampaignById(req.params.id);
     if (!campaign) throw new NOT_FOUND_ERROR('Campaign not found');
     if (campaign.user_id.toString() !== req.user.sub) {
       throw new UNAUTHORIZED_ERROR('No permission');
@@ -70,7 +71,7 @@ export const sendCampaign = async (
       jobPublishQueue.push({ jobId, delayMs });
     }
 
-    const user = await User.findById(campaign.user_id);
+    const user = await findUserById(campaign.user_id.toString());
     if (!user) throw new NOT_FOUND_ERROR('User not found');
 
     const activeAccount = user.activeAccountId
@@ -80,25 +81,22 @@ export const sendCampaign = async (
       : null;
     const senderEmail = activeAccount?.email || user.email;
 
-    const matchedSignature = await Signature.findOne({
-      userId: campaign.user_id,
-      sourceEmail: senderEmail,
-    }).lean();
+    const matchedSignature = await findSignatureByEmail(campaign.user_id.toString(), senderEmail);
     const snapshotSignature = matchedSignature?.content ?? '';
 
-    writeCampaignConfig(campaign._id.toString(), { signature: snapshotSignature });
+    await writeCampaignConfig(campaign._id.toString(), { signature: snapshotSignature });
 
     for (const { jobId, delayMs } of jobPublishQueue) {
-      publishEmailJob(campaign._id.toString(), jobId, delayMs);
+      await publishEmailJob(campaign._id.toString(), jobId, delayMs);
     }
 
     campaign.email_jobs = emailJobs;
     campaign.status = 'sending';
     campaign.sendMode = sendMode;
     campaign.markModified('email_jobs');
-    await campaign.save();
+    await saveCampaign(campaign);
 
-    res.json({ message: 'queued', jobCount: Object.keys(emailJobs).length });
+    res.json({ message: 'Campaign queued successfully', data: { jobCount: Object.keys(emailJobs).length } });
   } catch (error) {
     next(error);
   }
@@ -110,7 +108,7 @@ export const cancelCampaign = async (
   next: NextFunction,
 ) => {
   try {
-    const campaign = await Campaign.findById(req.params.id);
+    const campaign = await findCampaignById(req.params.id);
     if (!campaign) throw new NOT_FOUND_ERROR('Campaign not found');
     if (campaign.user_id.toString() !== req.user.sub) {
       throw new UNAUTHORIZED_ERROR('No permission');
@@ -132,9 +130,9 @@ export const cancelCampaign = async (
 
     campaign.email_jobs = jobs;
     campaign.markModified('email_jobs');
-    await campaign.save();
+    await saveCampaign(campaign);
 
-    res.json({ message: 'cancelled', cancelledCount });
+    res.json({ message: 'Campaign cancelled successfully', data: { cancelledCount } });
   } catch (error) {
     next(error);
   }
@@ -146,7 +144,7 @@ export const getCampaignStatus = async (
   next: NextFunction,
 ) => {
   try {
-    const campaign = await Campaign.findById(req.params.id);
+    const campaign = await findCampaignById(req.params.id);
     if (!campaign) throw new NOT_FOUND_ERROR('Campaign not found');
     if (campaign.user_id.toString() !== req.user.sub) {
       throw new UNAUTHORIZED_ERROR('No permission');
@@ -164,10 +162,13 @@ export const getCampaignStatus = async (
     };
 
     res.json({
-      status: campaign.status,
-      sendMode: campaign.sendMode,
-      summary,
-      jobs,
+      message: 'Campaign status retrieved successfully',
+      data: {
+        status: campaign.status,
+        sendMode: campaign.sendMode,
+        summary,
+        jobs,
+      },
     });
   } catch (error) {
     next(error);

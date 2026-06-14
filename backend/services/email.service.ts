@@ -1,10 +1,15 @@
 import { BAD_REQUEST_ERROR, UNAUTHORIZED_ERROR } from '../utils/error';
 import logger from '../utils/wiston-log';
 import settings from '../config/env';
-import User, { UserDocument } from '../models/user.model';
-import Campaign from '../models/campaign.model';
-import Signature from '../models/signature.model';
+import { UserDocument } from '../models/user.model';
 import { Recipient } from '../schema/common.schema';
+import {
+  findUserById,
+  updateUserConnectedAccountToken,
+  updateUserById,
+} from '../repositories/user.repository';
+import { findCampaignById } from '../repositories/campaign.repository';
+import { findSignatureByEmail, findDefaultSignature } from '../repositories/signature.repository';
 import { sendRequest } from '../utils/send-request';
 import { readFile } from './file-storage.service';
 import { cleanSignatureHtml } from '../utils/clean-signature-html';
@@ -350,10 +355,7 @@ export const sendEmail = async ({
 
     if (sendResult.needRefresh) {
       accessToken = await refreshMicrosoftAccessToken(activeAccount.refreshToken!);
-      await User.findOneAndUpdate(
-        { _id: user._id, 'connectedAccounts._id': user.activeAccountId },
-        { $set: { 'connectedAccounts.$.accessToken': accessToken } },
-      );
+      await updateUserConnectedAccountToken(String(user._id), user.activeAccountId, accessToken);
       sendResult = await sendWithOutlookApi(
         accessToken,
         activeAccount.email,
@@ -399,12 +401,9 @@ export const sendEmail = async ({
   if (sendResult.needRefresh) {
     accessToken = await refreshGoogleAccessToken(gmailRefreshToken!);
     if (activeAccount?.provider === 'gmail') {
-      await User.findOneAndUpdate(
-        { _id: user._id, 'connectedAccounts._id': user.activeAccountId },
-        { $set: { 'connectedAccounts.$.accessToken': accessToken } },
-      );
+      await updateUserConnectedAccountToken(String(user._id), user.activeAccountId, accessToken);
     } else {
-      await User.findByIdAndUpdate(user._id, { googleAccessToken: accessToken });
+      await updateUserById(String(user._id), { googleAccessToken: accessToken });
     }
     sendResult = await sendWithGmailApi(accessToken, rawMessage);
   }
@@ -452,12 +451,12 @@ const processContent = (content: string, recipient: Recipient, fields: string[])
 };
 
 export const sendCampaignEmails = async ({ campaignId, userId }: SendCampaignPayload) => {
-  const user = await User.findById(userId);
+  const user = await findUserById(userId);
   if (!user) {
     throw new UNAUTHORIZED_ERROR('User not found');
   }
 
-  const campaign = await Campaign.findById(campaignId);
+  const campaign = await findCampaignById(campaignId);
   if (!campaign) {
     throw new BAD_REQUEST_ERROR('Campaign not found');
   }
@@ -483,8 +482,8 @@ export const sendCampaignEmails = async ({ campaignId, userId }: SendCampaignPay
   const senderEmail = activeAccount?.email || user.email;
 
   const matchedSignature =
-    (await Signature.findOne({ userId, sourceEmail: senderEmail }).lean()) ??
-    (await Signature.findOne({ userId, isDefault: true }).lean());
+    (await findSignatureByEmail(userId, senderEmail)) ??
+    (await findDefaultSignature(userId));
   const signature = matchedSignature?.content || '';
 
   const fields = Object.keys(campaign.recipients[0]);

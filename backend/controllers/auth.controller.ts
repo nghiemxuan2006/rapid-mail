@@ -22,7 +22,7 @@ const login = async (req: Request<{}, {}, {}, LoginQuery>, res: Response, next: 
 
     const result = await loginWithGoogle(authorizeCode);
 
-    res.json(result);
+    res.json({ message: 'Login successful', data: result });
   } catch (error) {
     next(error);
   }
@@ -38,7 +38,7 @@ const refresh = async (req: Request, res: Response, next: NextFunction) => {
 
     const tokens = await refreshAppToken(refreshToken);
 
-    res.json(tokens);
+    res.json({ message: 'Token refreshed', data: tokens });
   } catch (error) {
     next(error);
   }
@@ -49,7 +49,7 @@ const getProfile = async (req: Request, res: Response, next: NextFunction) => {
     const user = req.user;
     const profile = await getUserProfile(user.sub);
 
-    res.json(profile);
+    res.json({ message: 'Profile retrieved', data: profile });
   } catch (error) {
     next(error);
   }
@@ -61,7 +61,7 @@ const connectGmail = async (req: Request, res: Response, next: NextFunction) => 
     if (!authorize_code) throw new BAD_REQUEST_ERROR('authorize_code is required');
 
     const result = await connectGmailAccount(req.user.sub, authorize_code);
-    res.json(result);
+    res.json({ message: 'Gmail account connected', data: result });
   } catch (error) {
     next(error);
   }
@@ -73,7 +73,7 @@ const connectOutlook = async (req: Request, res: Response, next: NextFunction) =
     if (!authorize_code) throw new BAD_REQUEST_ERROR('authorize_code is required');
 
     const result = await connectOutlookAccount(req.user.sub, authorize_code);
-    res.json(result);
+    res.json({ message: 'Outlook account connected', data: result });
   } catch (error) {
     next(error);
   }
@@ -85,7 +85,7 @@ const removeConnectedAccount = async (req: Request, res: Response, next: NextFun
     if (!accountId) throw new BAD_REQUEST_ERROR('accountId is required');
 
     const result = await disconnectAccount(req.user.sub, accountId);
-    res.json(result);
+    res.json({ message: 'Account disconnected', data: result });
   } catch (error) {
     next(error);
   }
@@ -97,7 +97,7 @@ const activateConnectedAccount = async (req: Request, res: Response, next: NextF
     if (!accountId) throw new BAD_REQUEST_ERROR('accountId is required');
 
     const result = await setActiveAccount(req.user.sub, accountId);
-    res.json(result);
+    res.json({ message: 'Active account updated', data: result });
   } catch (error) {
     next(error);
   }
