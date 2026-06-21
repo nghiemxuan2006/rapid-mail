@@ -3,10 +3,8 @@ import './App.css'
 import NotFoundPage from "@/pages/404";
 import OAuthCallback from '@/pages/OAuthCallback';
 import { ToastContainer } from 'react-toastify';
-import Login from '@/pages/login/Login';
 import Home from '@/pages/home/Home';
 import Campaigns from '@/pages/campaigns/Campaigns';
-import Signatures from '@/pages/signatures/Signatures';
 import About from '@/pages/about/About';
 import MainLayout from '@/components/layout/MainLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';

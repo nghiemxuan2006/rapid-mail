@@ -103,8 +103,6 @@ const MailEditor = forwardRef<MailEditorRef, MailEditorProps>(({ content, onCont
         insertVariable
     }));
 
-    const characterCount = quillRef.current?.getText().length || 0;
-
     return (
         <div className="flex flex-col bg-card">
             {/* <div className={styles.toolLabel}>

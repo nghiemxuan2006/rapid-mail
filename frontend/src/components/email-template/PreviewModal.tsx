@@ -50,7 +50,7 @@ const PreviewModal = ({
     isSending = false,
     signature,
 }: PreviewModalProps) => {
-    const [selectOpen, setSelectOpen] = useState(false);
+    const [, setSelectOpen] = useState(false);
     const [isSendScheduleOpen, setIsSendScheduleOpen] = useState(false);
 
     const formatFileSize = (bytes: number): string => {

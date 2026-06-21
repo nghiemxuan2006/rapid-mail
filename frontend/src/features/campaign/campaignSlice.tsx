@@ -1,5 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
-import type { Campaign } from '@/schema/campaign';
+import type { Campaign, CampaignStatus } from '@/schema/campaign';
 import { getCampaignsApi, getCampaignByIdApi } from './campaignApi';
 
 interface CampaignState {
@@ -23,7 +23,7 @@ const campaignSlice = createSlice({
             const idx = state.list.findIndex(c => c._id === action.payload._id);
             if (idx !== -1) state.list[idx] = action.payload;
         },
-        updateCampaignStatus(state, action: { payload: { _id: string; status: string } }) {
+        updateCampaignStatus(state, action: { payload: { _id: string; status: CampaignStatus } }) {
             const idx = state.list.findIndex(c => c._id === action.payload._id);
             if (idx !== -1) state.list[idx] = { ...state.list[idx], status: action.payload.status };
         },

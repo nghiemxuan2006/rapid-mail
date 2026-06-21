@@ -1,6 +1,6 @@
 import apiService from "@/interceptors"
 
-export const sendRequest = async (url: string, method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', payload: any, thunkApi: any, headers = null) => {
+export const sendRequest = async (url: string, method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', payload: any, thunkApi: any, headers: Record<string, string> | null = null) => {
     let config: any = {
         method: method,
         data: payload,
