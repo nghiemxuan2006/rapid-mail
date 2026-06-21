@@ -18,9 +18,16 @@ infrastructure/
 ├── cloudformation/
 │   └── ec2-stack.yml          # CloudFormation template
 ├── nginx/
-│   └── nginx.conf             # Reverse proxy config
+│   └── Dockerfile             # Build nginx image, COPY config từ backend/nginx/
 └── scripts/
     └── deploy.sh              # Deploy script chạy trên EC2
+
+backend/
+└── nginx/
+    └── nginx.conf             # Reverse proxy HTTPS config + proxy /api/
+
+frontend/
+└── nginx.conf                 # Config serve static files (internal)
 
 .github/
 └── workflows/
@@ -57,21 +64,26 @@ infrastructure/
 
 ## Nginx — Reverse Proxy
 
-Nginx chạy như service trong `docker-compose.yml`. Frontend có `Dockerfile` riêng: build React (`npm run build`) → copy `dist/` vào Nginx image. SSL dùng self-signed certificate (generate bằng `openssl` trong Nginx Dockerfile), phù hợp môi trường test.
+Nginx chạy như service trong `docker-compose.yml`. Nginx config tách thành 2 file gần code:
+
+- `backend/nginx/nginx.conf` — reverse proxy HTTPS, xử lý SSL, route `/api/` → backend, route `/` → frontend
+- `frontend/nginx.conf` — serve static files nội bộ (không expose ra ngoài)
+
+`infrastructure/nginx/Dockerfile` build nginx image, COPY `backend/nginx/nginx.conf` vào image. SSL dùng self-signed certificate (generate bằng `openssl` trong Dockerfile), phù hợp môi trường test.
 
 ### Routing
 
 | Path | Destination |
 |---|---|
-| `https://<IP>/` | Frontend static (React build, served bởi Nginx) |
+| `https://<IP>/` | Frontend container (nginx serve static, internal port 80) |
 | `https://<IP>/api/` | Backend Node API (port 3000) |
 | `http://<IP>` | Redirect → HTTPS |
 | `http://<IP>:15672` | RabbitMQ Management (direct, không proxy) |
 
 ### docker-compose changes
 
-- Thêm service `nginx` (image: nginx:alpine, ports: 80:80, 443:443)
-- Thêm service `frontend` (build từ `../frontend/Dockerfile`, copy `dist/` vào Nginx)
+- Thêm service `nginx` (build từ `infrastructure/nginx/Dockerfile`, ports: 80:80, 443:443)
+- Thêm service `frontend` (build từ `frontend/Dockerfile`, dùng `frontend/nginx.conf` serve static, internal only)
 - `nginx` depends_on `backend` và `frontend`
 - Security Group mở thêm port 443
 

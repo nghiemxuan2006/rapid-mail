@@ -25,10 +25,11 @@
 | File | Action | Responsibility |
 |---|---|---|
 | `infrastructure/cloudformation/ec2-stack.yml` | Create | Provision VPC, Subnet, IGW, SG, EC2, EIP |
-| `infrastructure/nginx/Dockerfile` | Create | Build Nginx image với self-signed cert |
-| `infrastructure/nginx/nginx.conf` | Create | Reverse proxy HTTPS config |
+| `infrastructure/nginx/Dockerfile` | Create | Build Nginx image với self-signed cert, COPY backend/nginx/nginx.conf |
 | `infrastructure/scripts/deploy.sh` | Create | Script chạy trên EC2: git pull + docker compose up |
-| `frontend/Dockerfile` | Create | Build React → copy dist/ vào Nginx |
+| `backend/nginx/nginx.conf` | Create | Reverse proxy HTTPS config: SSL, route `/` → frontend, `/api/` → backend |
+| `frontend/Dockerfile` | Create | Build React → copy dist/ vào nginx:alpine, dùng frontend/nginx.conf |
+| `frontend/nginx.conf` | Create | Serve static files nội bộ (internal only, không HTTPS) |
 | `backend/docker-compose.yml` | Modify | Thêm service nginx, frontend; update ports |
 | `.github/workflows/deploy.yml` | Create | CI/CD workflow trigger on push/PR to test |
 
@@ -199,15 +200,33 @@ git commit -m "feat(infra): add CloudFormation EC2 stack template"
 
 ---
 
-### Task 2: Frontend Dockerfile
+### Task 2: Frontend Dockerfile và nginx.conf
 
 **Files:**
 - Create: `frontend/Dockerfile`
+- Create: `frontend/nginx.conf`
 
 **Interfaces:**
-- Produces: Docker image với React build trong `/usr/share/nginx/html`
+- Produces: Docker image với React build served bởi nginx tại internal port 80 (không expose ra ngoài)
 
-- [ ] **Step 1: Tạo Dockerfile**
+- [ ] **Step 1: Tạo frontend/nginx.conf**
+
+Tạo file `frontend/nginx.conf`:
+
+```nginx
+server {
+    listen 80;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+- [ ] **Step 2: Tạo frontend/Dockerfile**
 
 Tạo file `frontend/Dockerfile`:
 
@@ -221,11 +240,12 @@ RUN npm run build
 
 FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
 ```
 
-- [ ] **Step 2: Build thử locally để verify**
+- [ ] **Step 3: Build thử locally để verify**
 
 ```bash
 cd frontend
@@ -234,11 +254,11 @@ docker build -t rapid-mail-frontend .
 
 Expected: Build thành công, không có error.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add frontend/Dockerfile
-git commit -m "feat(frontend): add Dockerfile for static build"
+git add frontend/Dockerfile frontend/nginx.conf
+git commit -m "feat(frontend): add Dockerfile and nginx config for static build"
 ```
 
 ---
@@ -246,22 +266,16 @@ git commit -m "feat(frontend): add Dockerfile for static build"
 ### Task 3: Nginx Reverse Proxy với HTTPS
 
 **Files:**
+- Create: `backend/nginx/nginx.conf`
 - Create: `infrastructure/nginx/Dockerfile`
-- Create: `infrastructure/nginx/nginx.conf`
 
 **Interfaces:**
 - Consumes: `frontend` container tại hostname `frontend:80`, `backend` container tại hostname `backend:3000`
 - Produces: HTTPS endpoint port 443, HTTP redirect port 80
 
-- [ ] **Step 1: Tạo thư mục**
+- [ ] **Step 1: Tạo backend/nginx/nginx.conf**
 
-```bash
-mkdir -p infrastructure/nginx
-```
-
-- [ ] **Step 2: Tạo nginx.conf**
-
-Tạo file `infrastructure/nginx/nginx.conf`:
+Tạo file `backend/nginx/nginx.conf`:
 
 ```nginx
 server {
@@ -293,7 +307,7 @@ server {
 }
 ```
 
-- [ ] **Step 3: Tạo Nginx Dockerfile với self-signed cert**
+- [ ] **Step 2: Tạo infrastructure/nginx/Dockerfile**
 
 Tạo file `infrastructure/nginx/Dockerfile`:
 
@@ -307,16 +321,16 @@ RUN openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
     -out /etc/ssl/certs/nginx.crt \
     -subj "/C=VN/ST=HCM/L=HoChiMinh/O=RapidMail/CN=localhost"
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY ../../backend/nginx/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80 443
 CMD ["nginx", "-g", "daemon off;"]
 ```
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 3: Commit**
 
 ```bash
-git add infrastructure/nginx/
+git add backend/nginx/nginx.conf infrastructure/nginx/Dockerfile
 git commit -m "feat(infra): add Nginx HTTPS reverse proxy with self-signed cert"
 ```
 
