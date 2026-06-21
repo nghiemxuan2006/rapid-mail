@@ -40,13 +40,13 @@ infrastructure/
 | Internet Gateway | Attached to VPC |
 | Route Table | Default route `0.0.0.0/0` → Internet Gateway |
 | Security Group | Inbound: 22 (SSH), 80 (HTTP), 443 (HTTPS), 15672 (RabbitMQ Management) |
-| EC2 Instance | Amazon Linux 2, `t2.micro`, KeyPair qua parameter |
+| EC2 Instance | Amazon Linux 2, `t3.micro`, KeyPair qua parameter |
 | Elastic IP | Gắn cố định vào EC2 |
 
 ### Parameters
 
 - `KeyPairName` — tên key pair đã tạo trên AWS
-- `InstanceType` — default `t2.micro`
+- `InstanceType` — default `t3.micro`
 
 ### Outputs
 
@@ -57,21 +57,31 @@ infrastructure/
 
 ## Nginx — Reverse Proxy
 
-Nginx chạy như service trong `docker-compose.yml`. Frontend có `Dockerfile` riêng: build React (`npm run build`) → copy `dist/` vào Nginx image.
+Nginx chạy như service trong `docker-compose.yml`. Frontend có `Dockerfile` riêng: build React (`npm run build`) → copy `dist/` vào Nginx image. SSL dùng self-signed certificate (generate bằng `openssl` trong Nginx Dockerfile), phù hợp môi trường test.
 
 ### Routing
 
 | Path | Destination |
 |---|---|
-| `http://<IP>/` | Frontend static (React build) |
-| `http://<IP>/api/` | Backend Node API (port 3000) |
+| `https://<IP>/` | Frontend static (React build, served bởi Nginx) |
+| `https://<IP>/api/` | Backend Node API (port 3000) |
+| `http://<IP>` | Redirect → HTTPS |
 | `http://<IP>:15672` | RabbitMQ Management (direct, không proxy) |
 
 ### docker-compose changes
 
-- Thêm service `nginx` (image: nginx:alpine, ports: 80:80)
-- Thêm service `frontend` (build từ `../frontend/Dockerfile`)
+- Thêm service `nginx` (image: nginx:alpine, ports: 80:80, 443:443)
+- Thêm service `frontend` (build từ `../frontend/Dockerfile`, copy `dist/` vào Nginx)
 - `nginx` depends_on `backend` và `frontend`
+- Security Group mở thêm port 443
+
+### Self-signed Certificate
+
+Generate trong `infrastructure/nginx/Dockerfile` lúc build:
+```
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/ssl/private/nginx.key -out /etc/ssl/certs/nginx.crt
+```
+Client cần bỏ qua SSL verify hoặc add exception (chấp nhận được cho môi trường test).
 
 ---
 
