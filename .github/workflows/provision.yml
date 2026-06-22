@@ -17,7 +17,7 @@ on:
         options: [t3.micro, t3.small, t3.medium]
 
 env:
-  AWS_REGION: ap-southeast-1
+  AWS_REGION: us-west-1
   STACK_NAME: rapid-mail-ec2
   # Role ARN from the github-oidc stack — replace <ACCOUNT_ID> with your AWS account id
   AWS_ROLE_ARN: arn:aws:iam::752109736601:role/rapid-mail-github-actions

@@ -61,6 +61,12 @@ Resources:
                   - cloudformation:*
                   - ec2:*
                 Resource: '*'
+              # ec2-stack.yml resolves the AMI id via an SSM public parameter
+              # ({{resolve:ssm:/aws/service/ami-amazon-linux-latest/...}}),
+              # so CloudFormation needs to read it.
+              - Effect: Allow
+                Action: ssm:GetParameters
+                Resource: arn:aws:ssm:*::parameter/aws/service/*
 
 Outputs:
   GitHubActionsRoleArn:
