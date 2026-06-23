@@ -1,0 +1,57 @@
+name: Provision EC2 (CloudFormation)
+
+# Run MANUALLY from the Actions tab on GitHub — does not run on push.
+# Provisioning infra is rare (once / when infra changes),
+# so it's kept separate from the deploy workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      key_pair_name:
+        description: rapid-mail-1
+        required: true
+      instance_type:
+        description: Instance type
+        required: true
+        default: t3.micro
+        type: choice
+        options: [t3.micro, t3.small, t3.medium]
+
+env:
+  AWS_REGION: us-west-1
+  STACK_NAME: rapid-mail-ec2
+  # Role ARN from the github-oidc stack — replace <ACCOUNT_ID> with your AWS account id
+  AWS_ROLE_ARN: arn:aws:iam::752109736601:role/rapid-mail-github-actions
+
+permissions:
+  id-token: write   # REQUIRED — lets GitHub mint the OIDC token
+  contents: read
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy CloudFormation stack
+        run: |
+          aws cloudformation deploy \
+            --stack-name "$STACK_NAME" \
+            --template-file infrastructure/cloudformation/ec2-stack.yml \
+            --parameter-overrides \
+              KeyPairName="${{ inputs.key_pair_name }}" \
+              InstanceType="${{ inputs.instance_type }}" \
+            --no-fail-on-empty-changeset
+
+      - name: Show outputs (Elastic IP)
+        run: |
+          aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs" \
+            --output table

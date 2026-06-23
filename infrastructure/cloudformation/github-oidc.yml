@@ -1,0 +1,74 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Bootstrap stack — creates the GitHub OIDC provider + IAM role for GitHub Actions.
+  Deploy this ONCE, MANUALLY (see the instructions in provision.yml).
+  After it's created, copy the GitHubActionsRoleArn output into provision.yml.
+
+Parameters:
+  GitHubOrg:
+    Type: String
+    Default: nghiemxuan2006
+    Description: GitHub username/org that owns the repo
+  GitHubRepo:
+    Type: String
+    Default: rapid-mail
+    Description: Repository name
+
+Resources:
+  # OIDC provider — declares "AWS trusts tokens issued by GitHub".
+  # Only needs to be created once per AWS account.
+  GitHubOIDCProvider:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      # GitHub cert thumbprints. AWS now validates against its own trust store,
+      # but CloudFormation still requires this field.
+      ThumbprintList:
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
+        - 1c58a3a8518e8759bf075b76b750d4f2df264fce
+
+  # IAM role that GitHub Actions will "assume" via the OIDC token.
+  GitHubActionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: rapid-mail-github-actions
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOIDCProvider
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                # audience must be exactly sts.amazonaws.com
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                # Only this repo can assume the role. Change :* to
+                # :ref:refs/heads/test to lock it down to a single branch.
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubOrg}/${GitHubRepo}:*
+      Policies:
+        - PolicyName: rapid-mail-provision
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Enough permissions to deploy ec2-stack.yml (VPC, subnet, EC2, EIP...).
+              # Kept broad for a test env; tighten this for production.
+              - Effect: Allow
+                Action:
+                  - cloudformation:*
+                  - ec2:*
+                Resource: '*'
+              # ec2-stack.yml resolves the AMI id via an SSM public parameter
+              # ({{resolve:ssm:/aws/service/ami-amazon-linux-latest/...}}),
+              # so CloudFormation needs to read it.
+              - Effect: Allow
+                Action: ssm:GetParameters
+                Resource: arn:aws:ssm:*::parameter/aws/service/*
+
+Outputs:
+  GitHubActionsRoleArn:
+    Description: Role ARN — copy into provision.yml (role-to-assume)
+    Value: !GetAtt GitHubActionsRole.Arn
