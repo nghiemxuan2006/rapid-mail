@@ -9,6 +9,10 @@ Parameters:
     Type: String
     Default: t3.micro
     AllowedValues: [t3.micro, t3.small, t3.medium]
+  Branch:
+    Type: String
+    Default: test
+    Description: Nhánh git được clone khi máy khởi động
 
 Resources:
   VPC:
@@ -101,6 +105,24 @@ Resources:
       SubnetId: !Ref PublicSubnet
       SecurityGroupIds:
         - !Ref SecurityGroup
+      # Runs once on first boot — installs docker, the compose plugin and git
+      # so the instance is ready for deploy.sh without manual SSH setup.
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -e
+          yum update -y
+          yum install -y docker git
+          systemctl enable --now docker
+          usermod -aG docker ec2-user
+          mkdir -p /usr/local/lib/docker/cli-plugins
+          curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
+            -o /usr/local/lib/docker/cli-plugins/docker-compose
+          chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+          # Clone the repo as ec2-user so deploy.sh exists on the first deploy run.
+          sudo -u ec2-user git clone -b ${Branch} \
+            https://github.com/nghiemxuan2006/rapid-mail.git \
+            /home/ec2-user/rapid-mail
       Tags:
         - Key: Name
           Value: rapid-mail-ec2

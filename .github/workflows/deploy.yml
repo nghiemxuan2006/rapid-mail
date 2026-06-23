@@ -1,20 +1,21 @@
 name: Deploy to EC2
 
+# Push to any listed branch deploys it. To add an environment later,
+# add the branch here AND create a matching GitHub Environment (same name)
+# with its own EC2_HOST / EC2_USER / EC2_SSH_KEY secrets.
 on:
   push:
-    branches: [test]
-  pull_request:
-    branches: [test]
+    branches: [test, dev]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
+    # Selects the GitHub Environment named after the pushed branch (test/dev).
+    # secrets.* below then resolve to THAT environment's values — this is what
+    # routes each branch to its own EC2 host.
+    environment: ${{ github.ref_name }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
@@ -22,10 +23,9 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
 
       - name: Add EC2 to known hosts
-        run: |
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+        run: ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
       - name: Deploy to EC2
         run: |
           ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
-            "bash /home/ec2-user/rapid-mail/infrastructure/scripts/deploy.sh"
+            "BRANCH=${{ github.ref_name }} bash /home/ec2-user/rapid-mail/infrastructure/scripts/deploy.sh"

@@ -2,11 +2,20 @@
 set -e
 
 REPO_DIR="/home/ec2-user/rapid-mail"
+REPO_URL="https://github.com/nghiemxuan2006/rapid-mail.git"
+# Branch comes from the BRANCH env var; falls back to "test" if not set.
+BRANCH="${BRANCH:-test}"
 COMPOSE_FILE="$REPO_DIR/backend/docker-compose.yml"
+
+# First run: clone the repo. Subsequent runs: just pull.
+if [ ! -d "$REPO_DIR/.git" ]; then
+  echo "=== Cloning repo (first run) ==="
+  git clone -b "$BRANCH" "$REPO_URL" "$REPO_DIR"
+fi
 
 echo "=== Pulling latest code ==="
 cd "$REPO_DIR"
-git pull origin test
+git pull origin "$BRANCH"
 
 echo "=== Stopping existing containers ==="
 docker compose -f "$COMPOSE_FILE" down
