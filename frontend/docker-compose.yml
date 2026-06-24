@@ -1,0 +1,33 @@
+# Frontend / edge tier — runs on the same EC2 as the backend stack.
+# nginx is the single public entrypoint (80/443) and proxies:
+#   /     → frontend (this stack)
+#   /api/ → backend  (backend stack, reached over the shared network)
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rapid-mail-frontend
+    restart: unless-stopped
+    networks:
+      - rapid-mail-network
+
+  nginx:
+    build:
+      # Repo root, so the Dockerfile can COPY backend/nginx/nginx.conf.
+      context: ..
+      dockerfile: infrastructure/nginx/Dockerfile
+    container_name: rapid-mail-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - frontend
+    networks:
+      - rapid-mail-network
+
+# Same external network as the backend stack — lets nginx resolve `backend`.
+networks:
+  rapid-mail-network:
+    external: true
