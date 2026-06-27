@@ -25,6 +25,26 @@ jobs:
       - name: Add EC2 to known hosts
         run: ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
+      - name: Write backend env file
+        run: |
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "cat > /home/ec2-user/rapid-mail/backend/.env.${{ github.ref_name }} << 'EOF'
+          NODE_ENV=production
+          PORT=3000
+          MONGODB_URI=${{ secrets.MONGODB_URI }}
+          JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
+          GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REDIRECT_URI=${{ secrets.GOOGLE_REDIRECT_URI }}
+          MICROSOFT_CLIENT_ID=${{ secrets.MICROSOFT_CLIENT_ID }}
+          MICROSOFT_CLIENT_SECRET=${{ secrets.MICROSOFT_CLIENT_SECRET }}
+          MICROSOFT_REDIRECT_URI=${{ secrets.MICROSOFT_REDIRECT_URI }}
+          ACCESS_TOKEN_EXPIRES_IN=${{ secrets.ACCESS_TOKEN_EXPIRES_IN }}
+          REFRESH_TOKEN_EXPIRES_IN=${{ secrets.REFRESH_TOKEN_EXPIRES_IN }}
+          RABBITMQ_URL=${{ secrets.RABBITMQ_URL }}
+          GOOGLE_PUBSUB_TOPIC=${{ secrets.GOOGLE_PUBSUB_TOPIC }}
+          GMAIL_WEBHOOK_SECRET=${{ secrets.GMAIL_WEBHOOK_SECRET }}
+          EOF"
+
       - name: Deploy backend stack
         run: |
           ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \

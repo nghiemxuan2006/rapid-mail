@@ -37,6 +37,7 @@ deploy_backend() {
 
 deploy_frontend() {
   echo "=== Deploying frontend stack ==="
+  cp "$REPO_DIR/frontend/.env.${BRANCH}" "$REPO_DIR/frontend/.env"
   docker compose -f "$FRONTEND_COMPOSE" up --build -d --remove-orphans
 }
 
