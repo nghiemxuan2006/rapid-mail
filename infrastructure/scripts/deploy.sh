@@ -19,7 +19,8 @@ fi
 
 echo "=== Pulling latest code ($BRANCH) ==="
 cd "$REPO_DIR"
-git pull origin "$BRANCH"
+git fetch origin "$BRANCH"
+git reset --hard origin/"$BRANCH"
 
 echo "=== Ensuring shared network exists ==="
 docker network inspect "$SHARED_NETWORK" >/dev/null 2>&1 || docker network create "$SHARED_NETWORK"
