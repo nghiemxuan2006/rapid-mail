@@ -28,6 +28,7 @@ services:
       - rapid-mail-network
 
 # Same external network as the backend stack — lets nginx resolve `backend`.
+
 networks:
   rapid-mail-network:
     external: true
