@@ -24,21 +24,22 @@ git pull origin "$BRANCH"
 echo "=== Ensuring shared network exists ==="
 docker network inspect "$SHARED_NETWORK" >/dev/null 2>&1 || docker network create "$SHARED_NETWORK"
 
+deploy_nginx() {
+  echo "=== Ensuring nginx is running ==="
+  docker compose -f "$FRONTEND_COMPOSE" up --build -d nginx
+}
+
 deploy_backend() {
   echo "=== Deploying backend stack ==="
   docker compose -f "$BACKEND_COMPOSE" up --build -d --remove-orphans
-  # nginx (frontend stack) resolves `backend` at startup; recreating backend
-  # gives it a new IP, so bounce nginx to refresh the upstream — if it's running.
-  if docker ps --format '{{.Names}}' | grep -q '^rapid-mail-nginx$'; then
-    echo "=== Restarting nginx to refresh backend upstream ==="
-    docker compose -f "$FRONTEND_COMPOSE" restart nginx
-  fi
+  deploy_nginx
 }
 
 deploy_frontend() {
   echo "=== Deploying frontend stack ==="
   cp "$REPO_DIR/frontend/.env.${BRANCH}" "$REPO_DIR/frontend/.env"
-  docker compose -f "$FRONTEND_COMPOSE" up --build -d --remove-orphans
+  docker compose -f "$FRONTEND_COMPOSE" up --build -d frontend
+  deploy_nginx
 }
 
 case "$TARGET" in

@@ -7,7 +7,7 @@ RUN openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
     -out /etc/ssl/certs/nginx.crt \
     -subj "/C=VN/ST=HCM/L=HoChiMinh/O=RapidMail/CN=localhost"
 
-COPY backend/nginx/nginx.conf /etc/nginx/conf.d/default.conf
+COPY infrastructure/nginx/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80 443
 CMD ["nginx", "-g", "daemon off;"]
