@@ -97,6 +97,7 @@ volumes:
 
 # Shared network created once on the host (see deploy.sh). The frontend stack
 # attaches to the same network so nginx can reach `backend` by name.
+
 networks:
   rapid-mail-network:
     external: true
