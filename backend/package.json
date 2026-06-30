@@ -11,6 +11,7 @@
     "build": "tsc && node -r dotenv/config dist/app.js dotenv_config_path=.env",
     "test": "tsx -r dotenv/config app.ts dotenv_config_path=.env.test",
     "worker": "tsx -r dotenv/config worker/index.ts dotenv_config_path=.env",
+    "worker:test": "tsx -r dotenv/config worker/index.ts dotenv_config_path=.env.test",
     "worker:prod": "tsx -r dotenv/config worker/index.ts dotenv_config_path=.env.prod"
   },
   "keywords": [],

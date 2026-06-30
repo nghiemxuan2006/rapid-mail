@@ -27,8 +27,8 @@ services:
     networks:
       - rapid-mail-network
 
-# Same external network as the backend stack — lets nginx resolve `backend`.
-
+# Same fixed-name network as the backend stack — lets nginx resolve `backend`.
+# Auto-created/reused by compose, so no manual `docker network create` needed.
 networks:
   rapid-mail-network:
-    external: true
+    name: rapid-mail-network

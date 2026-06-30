@@ -31,7 +31,7 @@ export function useGoogleAuth() {
                     headers: { 'Content-Type': 'application/json' },
                 })
 
-                const data = await res.json()
+                const data = (await res.json()).data
                 const receivedAccessToken = data.access_token || data.accessToken
                 const receivedRefreshToken = data.refresh_token || data.refreshToken
 

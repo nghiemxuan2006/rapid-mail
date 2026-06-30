@@ -95,9 +95,9 @@ volumes:
   rapid_mail_data:
     driver: local
 
-# Shared network created once on the host (see deploy.sh). The frontend stack
-# attaches to the same network so nginx can reach `backend` by name.
-
+# Shared network with a fixed name. Not "external", so compose auto-creates it
+# on `up` if missing and reuses it if it already exists — works both locally
+# (plain `docker compose up`) and in CI, with no manual `docker network create`.
 networks:
   rapid-mail-network:
-    external: true
+    name: rapid-mail-network

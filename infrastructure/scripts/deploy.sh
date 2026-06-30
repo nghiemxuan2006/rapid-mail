@@ -7,7 +7,6 @@ REPO_URL="https://github.com/nghiemxuan2006/rapid-mail.git"
 BRANCH="${BRANCH:-test}"
 # Which stack to (re)deploy: backend | frontend | all
 TARGET="${TARGET:-all}"
-SHARED_NETWORK="rapid-mail-network"
 BACKEND_COMPOSE="$REPO_DIR/backend/docker-compose.yml"
 FRONTEND_COMPOSE="$REPO_DIR/frontend/docker-compose.yml"
 
@@ -22,8 +21,8 @@ cd "$REPO_DIR"
 git fetch origin "$BRANCH"
 git reset --hard origin/"$BRANCH"
 
-echo "=== Ensuring shared network exists ==="
-docker network inspect "$SHARED_NETWORK" >/dev/null 2>&1 || docker network create "$SHARED_NETWORK"
+# No manual network creation — compose auto-creates the fixed-name
+# `rapid-mail-network` (see docker-compose.yml) and reuses it across stacks.
 
 deploy_nginx() {
   echo "=== Ensuring nginx is running ==="
