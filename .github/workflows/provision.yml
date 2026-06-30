@@ -27,7 +27,8 @@ env:
   # One stack per branch → one EC2 per environment (rapid-mail-ec2-test, -dev...).
   STACK_NAME: rapid-mail-ec2-${{ inputs.branch }}
   # Role ARN from the github-oidc stack — replace <ACCOUNT_ID> with your AWS account id
-  AWS_ROLE_ARN: arn:aws:iam::752109736601:role/rapid-mail-github-actions
+  # AWS_ROLE_ARN: arn:aws:iam::752109736601:role/rapid-mail-github-actions # accuount nghiemxuan
+  AWS_ROLE_ARN: arn:aws:iam::851276831515:role/rapid-mail-github-actions # account vietanh
 
 permissions:
   id-token: write   # REQUIRED — lets GitHub mint the OIDC token
