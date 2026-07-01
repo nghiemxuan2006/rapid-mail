@@ -325,7 +325,7 @@ const EmailTemplate = ({ campaign, onBack, onCreate, onUpdate }: EmailTemplatePr
                 showNotifications('success', `Đã lên lịch cho ${schedules.length} người nhận`);
             }
 
-            const currentMeta = campaignMeta || campaign;
+            const currentMeta = savedCampaign || campaignMeta || campaign;
             if (currentMeta) {
                 dispatch(updateCampaignInStore({ ...currentMeta, _id: campaignId, status: 'sending' }));
             }
