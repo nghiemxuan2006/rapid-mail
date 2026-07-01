@@ -4,7 +4,7 @@ Description: Rapid Mail EC2 test environment
 Parameters:
   KeyPairName:
     Type: AWS::EC2::KeyPair::KeyName
-    Description: Tên key pair EC2 để SSH
+    Description: EC2 key pair name for SSH
   InstanceType:
     Type: String
     Default: t3.micro
@@ -12,7 +12,7 @@ Parameters:
   Branch:
     Type: String
     Default: test
-    Description: Nhánh git được clone khi máy khởi động
+    Description: Git branch cloned when the instance boots
 
 Resources:
   VPC:
@@ -105,6 +105,14 @@ Resources:
       SubnetId: !Ref PublicSubnet
       SecurityGroupIds:
         - !Ref SecurityGroup
+      # Root volume: 30GB gp3 — enough room for the OS, docker images, build cache and data.
+      # The AMI default is only ~8GB, which fills up fast with repeated builds on the box.
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 30
+            VolumeType: gp3
+            DeleteOnTermination: true
       # Runs once on first boot — installs docker, the compose plugin and git
       # so the instance is ready for deploy.sh without manual SSH setup.
       UserData:
@@ -113,6 +121,17 @@ Resources:
           set -e
           yum update -y
           yum install -y docker git
+
+          # # Create 2GB swap to absorb RAM spikes during builds (prevents OOM / SSH drops).
+          # # Idempotent: skip if the swapfile already exists (e.g. reboot / re-run).
+          # if [ ! -f /swapfile ]; then
+          #   dd if=/dev/zero of=/swapfile bs=1M count=2048
+          #   chmod 600 /swapfile
+          #   mkswap /swapfile
+          #   swapon /swapfile
+          #   echo '/swapfile none swap sw 0 0' >> /etc/fstab
+          # fi
+
           systemctl enable --now docker
           usermod -aG docker ec2-user
           mkdir -p /usr/local/lib/docker/cli-plugins
@@ -140,7 +159,7 @@ Resources:
 
 Outputs:
   EC2PublicIP:
-    Description: Elastic IP của EC2 — dùng làm EC2_HOST trong GitHub Secrets
+    Description: EC2 Elastic IP — used as EC2_HOST in GitHub Secrets
     Value: !Ref ElasticIP
     Export:
       Name: RapidMailEC2PublicIP
