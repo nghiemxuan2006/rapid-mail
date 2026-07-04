@@ -23,8 +23,8 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - /etc/letsencrypt:/etc/letsencrypt:ro
-      - /var/www/certbot:/var/www/certbot:ro
+      - /etc/ssl/certs/nginx.crt:/etc/ssl/certs/nginx.crt:ro
+      - /etc/ssl/private/nginx.key:/etc/ssl/private/nginx.key:ro
     depends_on:
       - frontend
     networks:
@@ -35,3 +35,4 @@ services:
 networks:
   rapid-mail-network:
     name: rapid-mail-network
+    external: true
