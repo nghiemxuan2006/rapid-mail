@@ -72,9 +72,6 @@ const Header = () => {
               <Link to="/campaigns" className={navLinkClass('/campaigns')}>
                 Campaigns
               </Link>
-              <Link to="/history" className={navLinkClass('/history')}>
-                History
-              </Link>
               <Link to="/about" className={navLinkClass('/about')}>
                 About us
               </Link>

@@ -42,14 +42,6 @@ function App() {
           }
         />
         <Route
-          path="/history"
-          element={
-            <ProtectedRoute>
-              <MainLayout><div>History Page</div></MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
           path="/about"
           element={
             <ProtectedRoute>
