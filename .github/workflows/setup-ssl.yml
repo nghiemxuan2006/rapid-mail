@@ -35,7 +35,8 @@ jobs:
           set -e
 
           # Install certbot
-          sudo yum install -y python3-certbot
+          sudo dnf install -y certbot cronie
+          sudo systemctl enable --now crond
 
           # Stop nginx temporarily so certbot can bind port 80
           docker stop rapid-mail-nginx || true
@@ -43,13 +44,13 @@ jobs:
           # Obtain cert
           sudo certbot certonly --standalone \
             -d "${{ inputs.domain }}" \
-            -d "www.${{ inputs.domain }}" \
             --non-interactive \
             --agree-tos \
             --email "${{ inputs.email }}"
 
           # Point nginx to Let's Encrypt cert
           CERT_PATH="/etc/letsencrypt/live/${{ inputs.domain }}"
+          sudo mkdir -p /etc/ssl/certs /etc/ssl/private
           sudo cp "$CERT_PATH/fullchain.pem" /etc/ssl/certs/nginx.crt
           sudo cp "$CERT_PATH/privkey.pem"   /etc/ssl/private/nginx.key
 
