@@ -1,0 +1,65 @@
+name: Setup SSL (Let's Encrypt)
+
+# Run ONCE after pointing the domain to the EC2 Elastic IP.
+# After the first run, cert auto-renews via cron on the EC2 instance.
+on:
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: Primary domain (e.g. rapid-mail.work)
+        required: true
+        default: rapid-mail.work
+      email:
+        description: Email for Let's Encrypt notifications
+        required: true
+        default: nghiemxuan2006@gmail.com
+
+jobs:
+  setup-ssl:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name }}
+
+    steps:
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+      - name: Add EC2 to known hosts
+        run: ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Install Certbot and obtain certificate
+        run: |
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} bash << 'EOF'
+          set -e
+
+          # Install certbot
+          sudo yum install -y python3-certbot
+
+          # Stop nginx temporarily so certbot can bind port 80
+          docker stop rapid-mail-nginx || true
+
+          # Obtain cert
+          sudo certbot certonly --standalone \
+            -d "${{ inputs.domain }}" \
+            -d "www.${{ inputs.domain }}" \
+            --non-interactive \
+            --agree-tos \
+            --email "${{ inputs.email }}"
+
+          # Point nginx to Let's Encrypt cert
+          CERT_PATH="/etc/letsencrypt/live/${{ inputs.domain }}"
+          sudo cp "$CERT_PATH/fullchain.pem" /etc/ssl/certs/nginx.crt
+          sudo cp "$CERT_PATH/privkey.pem"   /etc/ssl/private/nginx.key
+
+          # Restart nginx
+          cd /home/ec2-user/rapid-mail
+          BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          docker compose -f frontend/docker-compose.yml up -d nginx
+
+          # Setup auto-renew cron (runs 1st of every month)
+          (sudo crontab -l 2>/dev/null; echo "0 0 1 * * certbot renew --quiet && cp /etc/letsencrypt/live/${{ inputs.domain }}/fullchain.pem /etc/ssl/certs/nginx.crt && cp /etc/letsencrypt/live/${{ inputs.domain }}/privkey.pem /etc/ssl/private/nginx.key && docker exec rapid-mail-nginx nginx -s reload") | sudo crontab -
+
+          echo "SSL setup complete"
+          EOF
