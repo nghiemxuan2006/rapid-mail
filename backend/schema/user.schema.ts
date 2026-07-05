@@ -15,6 +15,8 @@ export const userSchema = z.object({
   googleRefreshToken: z.string().min(1),
   connectedAccounts: z.array(connectedAccountSchema).optional(),
   activeAccountId: z.string().optional().nullable(),
+  role: z.enum(['user', 'admin']).default('user'),
+  isActive: z.boolean().default(true),
 });
 
 // ===== Types =====

@@ -38,6 +38,8 @@ const UserSchema = new Schema<UserDocument>(
     googleRefreshToken: { type: String, required: true },
     connectedAccounts: { type: [ConnectedAccountSchema], default: [] },
     activeAccountId: { type: String, default: null },
+    role: { type: String, enum: ['user', 'admin'], default: 'user' },
+    isActive: { type: Boolean, default: true },
   },
   { timestamps: true },
 );
