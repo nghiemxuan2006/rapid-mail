@@ -18,6 +18,7 @@ export interface AuthState {
     } | null
     loading: boolean
     error: string | null
+    profileChecked: boolean
 }
 
 // Khởi tạo state từ localStorage ngay từ đầu
@@ -29,6 +30,7 @@ const getInitialAuthState = (): AuthState => {
         user: null,
         loading: false,
         error: null,
+        profileChecked: false,
     }
 }
 
@@ -60,6 +62,7 @@ const authSlice = createSlice({
             state.isAuthenticated = false
             state.user = null
             state.error = null
+            state.profileChecked = false
 
             // Xóa tokens khỏi localStorage
             localStorage.removeItem('access_token')
@@ -70,6 +73,9 @@ const authSlice = createSlice({
         },
         setError: (state, action: PayloadAction<string | null>) => {
             state.error = action.payload
+        },
+        setProfileChecked: (state, action: PayloadAction<boolean>) => {
+            state.profileChecked = action.payload
         },
         initializeAuth: (state) => {
             // Kiểm tra token trong localStorage khi app khởi động
@@ -121,6 +127,6 @@ const authSlice = createSlice({
     },
 })
 
-export const { setCredentials, logout, setLoading, setError, initializeAuth, setUserProfile, setConnectedAccounts, setActiveAccountId } = authSlice.actions
+export const { setCredentials, logout, setLoading, setError, initializeAuth, setUserProfile, setConnectedAccounts, setActiveAccountId, setProfileChecked } = authSlice.actions
 
 export default authSlice.reducer

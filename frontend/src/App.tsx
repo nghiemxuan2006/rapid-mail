@@ -12,7 +12,7 @@ import MainLayout from '@/components/layout/MainLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAppDispatch, useAppSelector } from '@/app/hook';
 import { getUserProfile } from '@/features/user/userApi';
-import { setUserProfile } from '@/features/auth/authSlice';
+import { setUserProfile, setProfileChecked } from '@/features/auth/authSlice';
 import AdminPage from '@/pages/admin/AdminPage';
 
 function HomeRedirect() {
@@ -26,7 +26,15 @@ function HomeRedirect() {
 }
 
 function AdminRoute({ children }: { children: ReactNode }) {
-  const role = useAppSelector((state) => state.auth.user?.role);
+  const { isAuthenticated, user, profileChecked } = useAppSelector((state) => state.auth);
+  const role = user?.role;
+
+  // Wait for the profile fetch to resolve before deciding whether to redirect,
+  // otherwise a real admin gets bounced on first render (role is undefined
+  // until getUserProfile() resolves).
+  if (isAuthenticated && !profileChecked) {
+    return <div>Loading...</div>
+  }
 
   if (role !== 'admin') {
     return <Navigate to="/campaigns" replace />
@@ -37,16 +45,17 @@ function AdminRoute({ children }: { children: ReactNode }) {
 
 function App() {
   const dispatch = useAppDispatch();
-  const { isAuthenticated, user } = useAppSelector((state) => state.auth);
+  const { isAuthenticated, user, profileChecked } = useAppSelector((state) => state.auth);
 
   useEffect(() => {
-    if (isAuthenticated && !user?.role) {
+    if (isAuthenticated && !user?.role && !profileChecked) {
       dispatch(getUserProfile())
         .unwrap()
         .then((data) => dispatch(setUserProfile(data)))
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => dispatch(setProfileChecked(true)));
     }
-  }, [isAuthenticated, user?.role, dispatch]);
+  }, [isAuthenticated, user?.role, profileChecked, dispatch]);
 
   return (
     <BrowserRouter>
