@@ -10,8 +10,13 @@ export const createFeedback = (doc: {
 export const findFeedbackByUserId = (userId: string) =>
   Feedback.find({ user_id: userId }).sort({ createdAt: -1 });
 
-export const findAllFeedback = (filter: { type?: string; status?: string }) =>
-  Feedback.find(filter).sort({ createdAt: -1 }).populate('user_id', 'name email');
+export const findAllFeedback = (filter: { type?: string; status?: string }) => {
+  const query: Record<string, string> = {};
+  if (filter.type) query.type = filter.type;
+  if (filter.status) query.status = filter.status;
+
+  return Feedback.find(query).sort({ createdAt: -1 }).populate('user_id', 'name email');
+};
 
 export const findFeedbackById = (id: string) => Feedback.findById(id);
 
