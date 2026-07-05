@@ -77,12 +77,12 @@ const About = () => {
     setSubmittingFeedback(true);
     try {
       await dispatch(createFeedbackApi(payload)).unwrap();
-      toast.success('Cảm ơn bạn đã gửi feedback!');
+      toast.success('Thank you for your feedback!');
       setSubject('');
       setMessage('');
       setFeedbackType('general');
     } catch {
-      toast.error('Gửi feedback thất bại, vui lòng thử lại.');
+      toast.error('Failed to submit feedback, please try again.');
     } finally {
       setSubmittingFeedback(false);
     }
