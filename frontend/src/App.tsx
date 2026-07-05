@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
 import './App.css'
 import NotFoundPage from "@/pages/404";
@@ -12,6 +13,7 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAppDispatch, useAppSelector } from '@/app/hook';
 import { getUserProfile } from '@/features/user/userApi';
 import { setUserProfile } from '@/features/auth/authSlice';
+import AdminPage from '@/pages/admin/AdminPage';
 
 function HomeRedirect() {
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated)
@@ -21,6 +23,16 @@ function HomeRedirect() {
   }
 
   return <Home />
+}
+
+function AdminRoute({ children }: { children: ReactNode }) {
+  const role = useAppSelector((state) => state.auth.user?.role);
+
+  if (role !== 'admin') {
+    return <Navigate to="/campaigns" replace />
+  }
+
+  return <>{children}</>
 }
 
 function App() {
@@ -61,6 +73,16 @@ function App() {
           element={
             <ProtectedRoute>
               <MainLayout><About /></MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <AdminRoute>
+                <MainLayout><AdminPage /></MainLayout>
+              </AdminRoute>
             </ProtectedRoute>
           }
         />

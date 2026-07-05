@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useState, useEffect } from 'react';
-import { useAppDispatch } from '@/app/hook';
+import { useAppDispatch, useAppSelector } from '@/app/hook';
 import { logout } from '@/features/auth/authSlice';
 import { RapidmailLogo } from '@/components/RapidmailLogo';
 import { SettingsModal } from '@/components/SettingsModal';
@@ -20,6 +20,7 @@ const Header = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
+  const role = useAppSelector((state) => state.auth.user?.role);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
@@ -75,6 +76,11 @@ const Header = () => {
               <Link to="/about" className={navLinkClass('/about')}>
                 About us
               </Link>
+              {role === 'admin' && (
+                <Link to="/admin" className={navLinkClass('/admin')}>
+                  Admin
+                </Link>
+              )}
             </nav>
           </div>
 
