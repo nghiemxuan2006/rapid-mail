@@ -67,3 +67,18 @@ export const setActiveAccountId = (userId: string, accountId: string) =>
   User.findByIdAndUpdate(userId, { $set: { activeAccountId: accountId } });
 
 export const saveUser = (user: UserDocument) => user.save();
+
+export const findAllUsers = (search?: string) => {
+  const filter = search
+    ? {
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { email: { $regex: search, $options: 'i' } },
+        ],
+      }
+    : {};
+
+  return User.find(filter).select('name email role isActive createdAt').sort({ createdAt: -1 });
+};
+
+export const deleteUserById = (id: string) => User.findByIdAndDelete(id);
