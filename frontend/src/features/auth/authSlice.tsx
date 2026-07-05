@@ -11,6 +11,8 @@ export interface AuthState {
     user: {
         email?: string
         name?: string
+        role?: 'user' | 'admin'
+        isActive?: boolean
         connectedAccounts?: ConnectedAccount[]
         activeAccountId?: string | null
     } | null
@@ -79,11 +81,13 @@ const authSlice = createSlice({
         },
         setUserProfile: (
             state,
-            action: PayloadAction<{ email?: string; name?: string; connectedAccounts?: ConnectedAccount[]; activeAccountId?: string | null }>
+            action: PayloadAction<{ email?: string; name?: string; role?: 'user' | 'admin'; isActive?: boolean; connectedAccounts?: ConnectedAccount[]; activeAccountId?: string | null }>
         ) => {
             if (state.user) {
                 state.user.email = action.payload.email ?? state.user.email
                 state.user.name = action.payload.name ?? state.user.name
+                state.user.role = action.payload.role ?? state.user.role
+                state.user.isActive = action.payload.isActive ?? state.user.isActive
                 if (action.payload.connectedAccounts !== undefined) {
                     state.user.connectedAccounts = action.payload.connectedAccounts
                 }
@@ -94,6 +98,8 @@ const authSlice = createSlice({
                 state.user = {
                     email: action.payload.email,
                     name: action.payload.name,
+                    role: action.payload.role,
+                    isActive: action.payload.isActive,
                     connectedAccounts: action.payload.connectedAccounts,
                     activeAccountId: action.payload.activeAccountId,
                 }

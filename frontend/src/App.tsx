@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
 import './App.css'
 import NotFoundPage from "@/pages/404";
@@ -8,7 +9,9 @@ import Campaigns from '@/pages/campaigns/Campaigns';
 import About from '@/pages/about/About';
 import MainLayout from '@/components/layout/MainLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import { useAppSelector } from '@/app/hook';
+import { useAppDispatch, useAppSelector } from '@/app/hook';
+import { getUserProfile } from '@/features/user/userApi';
+import { setUserProfile } from '@/features/auth/authSlice';
 
 function HomeRedirect() {
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated)
@@ -21,6 +24,18 @@ function HomeRedirect() {
 }
 
 function App() {
+  const dispatch = useAppDispatch();
+  const { isAuthenticated, user } = useAppSelector((state) => state.auth);
+
+  useEffect(() => {
+    if (isAuthenticated && !user?.role) {
+      dispatch(getUserProfile())
+        .unwrap()
+        .then((data) => dispatch(setUserProfile(data)))
+        .catch(() => {});
+    }
+  }, [isAuthenticated, user?.role, dispatch]);
+
   return (
     <BrowserRouter>
       <Routes>
