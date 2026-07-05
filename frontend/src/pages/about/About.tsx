@@ -184,7 +184,7 @@ const About = () => {
 
               <Button type="submit" className="w-full" disabled={submittingFeedback}>
                 <Send className="h-4 w-4 mr-2" />
-                {submittingFeedback ? 'Đang gửi...' : 'Submit Feedback'}
+                {submittingFeedback ? 'Sending...' : 'Submit Feedback'}
               </Button>
             </form>
           </CardContent>
