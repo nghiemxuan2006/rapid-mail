@@ -187,6 +187,8 @@ const getUserProfile = async (userId: string) => {
   return {
     email: user.email,
     name: user.name,
+    role: user.role,
+    isActive: user.isActive,
     activeAccountId: user.activeAccountId || null,
     connectedAccounts: (user.connectedAccounts || []).map((acc: any) => ({
       id: acc._id.toString(),
