@@ -22,7 +22,7 @@ export const upsertUserByEmail = (
   });
 
 export const updateUserById = (id: string, update: Record<string, unknown>) =>
-  User.findByIdAndUpdate(id, update, { new: true });
+  User.findByIdAndUpdate(id, update, { new: true }).select('name email role isActive createdAt');
 
 export const updateUserConnectedAccountToken = (
   userId: string,
