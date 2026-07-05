@@ -13,7 +13,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'react-toastify';
-import { useAppSelector } from '@/app/hook';
+import { useAppDispatch, useAppSelector } from '@/app/hook';
+import { createFeedbackApi } from '@/features/feedback/feedbackApi';
+import { feedbackFormSchema, type FeedbackCreateInput, type FeedbackType } from '@/schema/feedback';
 
 const features = [
   {
@@ -50,30 +52,40 @@ const features = [
 
 const About = () => {
   const userEmail = useAppSelector((state) => state.auth.user?.email ?? '');
-  const [feedbackType, setFeedbackType] = useState('');
+  const dispatch = useAppDispatch();
+  const [feedbackType, setFeedbackType] = useState<FeedbackType>('general');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
-  const handleSubmitFeedback = (e: React.FormEvent) => {
+  const handleSubmitFeedback = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!feedbackType) {
-      toast.error('Please select a feedback type');
-      return;
-    }
-    if (!subject.trim()) {
-      toast.error('Please enter a subject');
-      return;
-    }
-    if (!message.trim()) {
-      toast.error('Please enter your feedback message');
+    const payload: FeedbackCreateInput = {
+      type: feedbackType,
+      title: subject,
+      message,
+    };
+
+    try {
+      await feedbackFormSchema.validate(payload, { abortEarly: true });
+    } catch (err) {
+      if (err instanceof Error) toast.error(err.message);
       return;
     }
 
-    toast.success('Thank you! Your feedback has been submitted.');
-    setFeedbackType('');
-    setSubject('');
-    setMessage('');
+    setSubmittingFeedback(true);
+    try {
+      await dispatch(createFeedbackApi(payload)).unwrap();
+      toast.success('Cảm ơn bạn đã gửi feedback!');
+      setSubject('');
+      setMessage('');
+      setFeedbackType('general');
+    } catch {
+      toast.error('Gửi feedback thất bại, vui lòng thử lại.');
+    } finally {
+      setSubmittingFeedback(false);
+    }
   };
 
   return (
@@ -123,14 +135,13 @@ const About = () => {
             <form onSubmit={handleSubmitFeedback} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="feedback-type">Feedback Type</Label>
-                <Select value={feedbackType} onValueChange={setFeedbackType}>
+                <Select value={feedbackType} onValueChange={(v) => setFeedbackType(v as FeedbackType)}>
                   <SelectTrigger id="feedback-type">
                     <SelectValue placeholder="Select feedback type..." />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="bug">🐛 Bug Report</SelectItem>
                     <SelectItem value="feature">✨ Feature Request</SelectItem>
-                    <SelectItem value="improvement">💡 Improvement</SelectItem>
                     <SelectItem value="general">💬 General Feedback</SelectItem>
                   </SelectContent>
                 </Select>
@@ -143,6 +154,7 @@ const About = () => {
                   placeholder="Brief summary of your feedback"
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
+                  maxLength={100}
                 />
               </div>
 
@@ -154,6 +166,7 @@ const About = () => {
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   rows={4}
+                  maxLength={2000}
                   className="resize-none"
                 />
               </div>
@@ -169,9 +182,9 @@ const About = () => {
                 />
               </div>
 
-              <Button type="submit" className="w-full">
+              <Button type="submit" className="w-full" disabled={submittingFeedback}>
                 <Send className="h-4 w-4 mr-2" />
-                Submit Feedback
+                {submittingFeedback ? 'Đang gửi...' : 'Submit Feedback'}
               </Button>
             </form>
           </CardContent>
