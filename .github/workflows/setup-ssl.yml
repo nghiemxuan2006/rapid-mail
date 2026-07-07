@@ -39,7 +39,7 @@ jobs:
           sudo systemctl enable --now crond
 
           # Stop nginx temporarily so certbot can bind port 80
-          docker stop rapid-mail-nginx || true
+          # docker stop rapid-mail-nginx || true
 
           # Obtain cert
           sudo certbot certonly --standalone \
@@ -57,7 +57,7 @@ jobs:
           # Restart nginx
           cd /home/ec2-user/rapid-mail
           BRANCH=$(git rev-parse --abbrev-ref HEAD)
-          docker compose -f frontend/docker-compose.yml up -d nginx
+          # docker compose -f frontend/docker-compose.yml up -d nginx
 
           # Setup auto-renew cron (runs 1st of every month)
           (sudo crontab -l 2>/dev/null; echo "0 0 1 * * certbot renew --quiet && cp /etc/letsencrypt/live/${{ inputs.domain }}/fullchain.pem /etc/ssl/certs/nginx.crt && cp /etc/letsencrypt/live/${{ inputs.domain }}/privkey.pem /etc/ssl/private/nginx.key && docker exec rapid-mail-nginx nginx -s reload") | sudo crontab -
