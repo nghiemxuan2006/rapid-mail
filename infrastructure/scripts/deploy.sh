@@ -71,3 +71,4 @@ done
 
 echo "Health check failed after 3 attempts"
 exit 1
+
