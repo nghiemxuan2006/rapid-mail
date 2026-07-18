@@ -1,15 +1,13 @@
 import User from '../models/user.model';
 import settings from '../config/env';
 import logger from '../utils/wiston-log';
+import { refreshGoogleAccessToken } from './email.service';
+import { updateUserConnectedAccountToken } from '../repositories/user.repository';
 
 const GMAIL_WATCH_ENDPOINT = 'https://gmail.googleapis.com/gmail/v1/users/me/watch';
 
-export const setupGmailWatch = async (
-  userId: string,
-  accountId: string,
-  accessToken: string,
-): Promise<void> => {
-  const response = await fetch(GMAIL_WATCH_ENDPOINT, {
+const callGmailWatch = (accessToken: string): Promise<Response> =>
+  fetch(GMAIL_WATCH_ENDPOINT, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -20,6 +18,29 @@ export const setupGmailWatch = async (
       labelIds: ['INBOX'],
     }),
   });
+
+export const setupGmailWatch = async (
+  userId: string,
+  accountId: string,
+  accessToken: string,
+  refreshToken?: string,
+): Promise<void> => {
+  let response = await callGmailWatch(accessToken);
+
+  if (response.status === 401 && refreshToken) {
+    try {
+      accessToken = await refreshGoogleAccessToken(refreshToken);
+      await updateUserConnectedAccountToken(userId, accountId, accessToken);
+      response = await callGmailWatch(accessToken);
+    } catch (refreshErr) {
+      logger.error('Failed to refresh access token for Gmail watch', {
+        userId,
+        accountId,
+        refreshErr,
+      });
+      return;
+    }
+  }
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
@@ -62,7 +83,12 @@ export const renewExpiringWatches = async (): Promise<void> => {
       )
         continue;
 
-      await setupGmailWatch(user._id.toString(), account._id.toString(), account.accessToken);
+      await setupGmailWatch(
+        user._id.toString(),
+        account._id.toString(),
+        account.accessToken,
+        account.refreshToken,
+      );
     }
   }
 };

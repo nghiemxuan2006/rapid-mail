@@ -12,7 +12,11 @@ declare global {
   }
 }
 
-export const verifyToken = async (req: Request, res: Response, next: NextFunction) => {
+export const verifyToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
   try {
     const accessToken =
       extractToken(req.header('Authorization')) || extractToken(req.header('Token'));

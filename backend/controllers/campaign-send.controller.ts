@@ -13,7 +13,7 @@ export const sendCampaign = async (
   req: Request<CampaignSendParams, {}, SendCampaignBody>,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
     const campaign = await findCampaignById(req.params.id);
     if (!campaign) throw new NOT_FOUND_ERROR('Campaign not found');
@@ -25,6 +25,20 @@ export const sendCampaign = async (
     }
     if (!campaign.recipients || campaign.recipients.length === 0) {
       throw new BAD_REQUEST_ERROR('Campaign has no recipients');
+    }
+
+    const user = await findUserById(campaign.user_id.toString());
+    if (!user) throw new NOT_FOUND_ERROR('User not found');
+
+    const activeAccount = user.activeAccountId
+      ? (user.connectedAccounts || []).find(
+          (acc: any) => acc._id.toString() === String(user.activeAccountId),
+        )
+      : null;
+    if (!activeAccount) {
+      throw new BAD_REQUEST_ERROR(
+        'No active connected account. Connect and activate a sending account in Settings before sending a campaign.',
+      );
     }
 
     const { sendMode } = req.body;
@@ -71,15 +85,7 @@ export const sendCampaign = async (
       jobPublishQueue.push({ jobId, delayMs });
     }
 
-    const user = await findUserById(campaign.user_id.toString());
-    if (!user) throw new NOT_FOUND_ERROR('User not found');
-
-    const activeAccount = user.activeAccountId
-      ? (user.connectedAccounts || []).find(
-          (acc: any) => acc._id.toString() === String(user.activeAccountId),
-        )
-      : null;
-    const senderEmail = activeAccount?.email || user.email;
+    const senderEmail = activeAccount.email;
 
     const matchedSignature = await findSignatureByEmail(campaign.user_id.toString(), senderEmail);
     const snapshotSignature = matchedSignature?.content ?? '';
@@ -106,7 +112,7 @@ export const cancelCampaign = async (
   req: Request<CampaignSendParams>,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
     const campaign = await findCampaignById(req.params.id);
     if (!campaign) throw new NOT_FOUND_ERROR('Campaign not found');
@@ -142,7 +148,7 @@ export const getCampaignStatus = async (
   req: Request<CampaignSendParams>,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
     const campaign = await findCampaignById(req.params.id);
     if (!campaign) throw new NOT_FOUND_ERROR('Campaign not found');

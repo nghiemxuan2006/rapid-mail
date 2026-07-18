@@ -16,7 +16,7 @@ export const listUsers = async (
   req: Request<{}, {}, {}, ListUsersQuery>,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
     const users = await findAllUsers(req.query.search);
     res.json({ message: 'Users retrieved successfully', data: users });
@@ -29,7 +29,7 @@ export const updateUserRole = async (
   req: Request<UserParams, {}, UpdateUserRoleBody>,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
     if (req.params.id === req.user.sub) {
       throw new BAD_REQUEST_ERROR('Bạn không thể tự đổi role của chính mình');
@@ -48,7 +48,7 @@ export const updateUserActive = async (
   req: Request<UserParams, {}, UpdateUserActiveBody>,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
     if (req.params.id === req.user.sub) {
       throw new BAD_REQUEST_ERROR('Bạn không thể tự khóa tài khoản của chính mình');
@@ -63,7 +63,11 @@ export const updateUserActive = async (
   }
 };
 
-export const deleteUser = async (req: Request<UserParams>, res: Response, next: NextFunction) => {
+export const deleteUser = async (
+  req: Request<UserParams>,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
   try {
     if (req.params.id === req.user.sub) {
       throw new BAD_REQUEST_ERROR('Bạn không thể tự xóa tài khoản của chính mình');
@@ -85,7 +89,7 @@ export const listFeedback = async (
   req: Request<{}, {}, {}, ListFeedbackQuery>,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
     const feedback = await findAllFeedback({ type: req.query.type, status: req.query.status });
     res.json({ message: 'Feedback retrieved successfully', data: feedback });
@@ -98,7 +102,7 @@ export const updateFeedbackStatus = async (
   req: Request<FeedbackParams, {}, UpdateFeedbackStatusBody>,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
     const feedback = await updateFeedbackStatusById(req.params.id, req.body.status);
     if (!feedback) throw new NOT_FOUND_ERROR('Feedback not found');
@@ -109,7 +113,11 @@ export const updateFeedbackStatus = async (
   }
 };
 
-export const deleteFeedback = async (req: Request<FeedbackParams>, res: Response, next: NextFunction) => {
+export const deleteFeedback = async (
+  req: Request<FeedbackParams>,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
   try {
     const feedback = await findFeedbackById(req.params.id);
     if (!feedback) throw new NOT_FOUND_ERROR('Feedback not found');

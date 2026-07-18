@@ -1,6 +1,5 @@
 import express from 'express';
 import {
-  importGmailSignaturesHandler,
   importGmailSignaturesByAccountHandler,
   getSignaturesHandler,
   getDefaultSignatureHandler,
@@ -15,7 +14,6 @@ import { createSignatureBodySchema, updateMySignatureBodySchema } from '../schem
 const router = express.Router();
 
 // Import from provider APIs
-router.get('/import/gmail', verifyToken, importGmailSignaturesHandler);
 router.get('/import/gmail/:accountId', verifyToken, importGmailSignaturesByAccountHandler);
 
 // App-managed signatures

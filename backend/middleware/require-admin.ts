@@ -2,7 +2,11 @@ import { Request, Response, NextFunction } from 'express';
 import { FORBIDDEN_ERROR } from '../utils/error';
 import { findUserById } from '../repositories/user.repository';
 
-export const requireAdmin = async (req: Request, res: Response, next: NextFunction) => {
+export const requireAdmin = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
   try {
     const user = await findUserById(req.user.sub);
 

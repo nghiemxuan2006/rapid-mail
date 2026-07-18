@@ -25,14 +25,6 @@ export interface Signature {
 
 // ─── Gmail import ─────────────────────────────────────────────────────────────
 
-export const getSignaturesApi = createAsyncThunk<GmailSignature[], void>(
-    'api/get-signatures',
-    async (payload, thunkApi) => {
-        const res = await sendRequest('signatures/import/gmail', 'GET', payload, thunkApi)
-        return res.data ?? []
-    }
-)
-
 export const getSignaturesByAccountApi = createAsyncThunk<GmailSignature[], string>(
     'api/get-signatures-by-account',
     async (accountId, thunkApi) => {
@@ -96,20 +88,5 @@ export const deleteSignatureApi = createAsyncThunk<string, string>(
     async (id, thunkApi) => {
         await sendRequest(`signatures/${id}`, 'DELETE', undefined, thunkApi)
         return id
-    }
-)
-
-// ─── Legacy: update Gmail sendAs signature directly ───────────────────────────
-
-export interface UpdateGmailSignaturePayload {
-    sendAsEmail: string;
-    signature: string;
-}
-
-export const updateGmailSignatureApi = createAsyncThunk<GmailSignature, UpdateGmailSignaturePayload>(
-    'api/update-gmail-signature',
-    async (payload, thunkApi) => {
-        const res = await sendRequest(`signatures/`, 'PUT', payload, thunkApi)
-        return res.data
     }
 )

@@ -6,7 +6,7 @@ export const submitFeedback = async (
   req: Request<{}, {}, CreateFeedbackBody>,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
     const { type, title, message } = req.body;
     const feedback = await createFeedback({ user_id: req.user.sub, type, title, message });
@@ -16,7 +16,11 @@ export const submitFeedback = async (
   }
 };
 
-export const getMyFeedback = async (req: Request, res: Response, next: NextFunction) => {
+export const getMyFeedback = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
   try {
     const feedback = await findFeedbackByUserId(req.user.sub);
     res.json({ message: 'Feedback retrieved successfully', data: feedback });

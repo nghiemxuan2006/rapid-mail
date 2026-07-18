@@ -1,5 +1,7 @@
-import { cleanSignatureHtml, inlineSignatureImages } from '../utils/clean-signature-html';
-import { UserDocument, ConnectedAccount } from '../models/user.model';
+import { inlineSignatureImages } from '../utils/clean-signature-html';
+import { ConnectedAccount } from '../models/user.model';
+import { SignatureDocument } from '../models/signature.model';
+import { LeanSignature } from '../repositories/signature.repository';
 import { UNAUTHORIZED_ERROR, BAD_REQUEST_ERROR, NOT_FOUND_ERROR } from '../utils/error';
 import {
   findSignaturesByUserId,
@@ -11,7 +13,7 @@ import {
   deleteSignatureByUserAndId,
   clearDefaultSignatures,
 } from '../repositories/signature.repository';
-import { findUserById, saveUser, updateUserConnectedAccountToken } from '../repositories/user.repository';
+import { findUserById, updateUserConnectedAccountToken } from '../repositories/user.repository';
 import settings from '../config/env';
 import { sendRequest } from '../utils/send-request';
 import { CreateSignatureBody, UpdateMySignatureBody } from '../schema/signature.schema';
@@ -50,43 +52,12 @@ const refreshGoogleAccessToken = async (refreshToken: string): Promise<string> =
   return data.access_token;
 };
 
-// ─── Gmail import (read-only from Gmail API) ─────────────────────────────────
-
-export const importGmailSignatures = async (user: UserDocument) => {
-  let accessToken = user.googleAccessToken;
-
-  let response = await sendRequest({
-    method: 'GET',
-    url: GMAIL_SEND_AS_ENDPOINT,
-    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-  });
-
-  if (response.status === 401) {
-    accessToken = await refreshGoogleAccessToken(user.googleRefreshToken);
-    user.googleAccessToken = accessToken;
-    await saveUser(user);
-
-    response = await sendRequest({
-      method: 'GET',
-      url: GMAIL_SEND_AS_ENDPOINT,
-      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    });
-  }
-
-  if (response.status >= 400) {
-    const errorData = response.data as { error?: { message?: string } };
-    throw new BAD_REQUEST_ERROR(
-      errorData.error?.message || 'Failed to fetch signatures from Gmail API',
-    );
-  }
-
-  const data = response.data as { sendAs?: unknown[] };
-  return data.sendAs || [];
-};
-
 // ─── Gmail import for a specific connected account ───────────────────────────
 
-export const importGmailSignaturesByAccount = async (userId: string, accountId: string) => {
+export const importGmailSignaturesByAccount = async (
+  userId: string,
+  accountId: string,
+): Promise<unknown[]> => {
   const user = await findUserById(userId);
   if (!user) throw new UNAUTHORIZED_ERROR('User not found');
 
@@ -127,92 +98,16 @@ export const importGmailSignaturesByAccount = async (userId: string, accountId: 
   return data.sendAs || [];
 };
 
-// ─── Legacy — kept for backwards compatibility ────────────────────────────────
-
-export const getSignatureList = async (user: UserDocument, isAlias: boolean = false) => {
-  if (!isAlias) return importGmailSignatures(user);
-
-  // Fetch single sendAs entry for the user's primary email
-  let accessToken = user.googleAccessToken;
-  const endpoint = `${GMAIL_SEND_AS_ENDPOINT}/${encodeURIComponent(user.email)}`;
-
-  let response = await sendRequest({
-    method: 'GET',
-    url: endpoint,
-    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-  });
-
-  if (response.status === 401) {
-    accessToken = await refreshGoogleAccessToken(user.googleRefreshToken);
-    user.googleAccessToken = accessToken;
-    await saveUser(user);
-
-    response = await sendRequest({
-      method: 'GET',
-      url: endpoint,
-      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    });
-  }
-
-  if (response.status >= 400) {
-    const errorData = response.data as { error?: { message?: string } };
-    throw new BAD_REQUEST_ERROR(
-      errorData.error?.message || 'Failed to fetch signature from Gmail API',
-    );
-  }
-
-  return response.data;
-};
-
-export const updateSignatureService = async (
-  userId: string,
-  sendAsEmail: string,
-  signature: string,
-) => {
-  const user = await findUserById(userId);
-  if (!user) throw new UNAUTHORIZED_ERROR('User not found');
-
-  let accessToken = user.googleAccessToken;
-  const updateUrl = `${GMAIL_SEND_AS_ENDPOINT}/${encodeURIComponent(sendAsEmail)}`;
-  const payload = { signature: cleanSignatureHtml(signature) };
-
-  let response = await sendRequest({
-    method: 'PATCH',
-    url: updateUrl,
-    data: payload,
-    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-  });
-
-  if (response.status === 401) {
-    accessToken = await refreshGoogleAccessToken(user.googleRefreshToken);
-    user.googleAccessToken = accessToken;
-    await saveUser(user);
-
-    response = await sendRequest({
-      method: 'PATCH',
-      url: updateUrl,
-      data: payload,
-      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    });
-  }
-
-  if (response.status >= 400) {
-    const errorData = response.data as { error?: { message?: string } };
-    throw new BAD_REQUEST_ERROR(
-      errorData.error?.message || 'Failed to update signature via Gmail API',
-    );
-  }
-
-  return response.data;
-};
-
 // ─── App-managed signatures (MongoDB) ────────────────────────────────────────
 
-export const listSignatures = async (userId: string) => {
+export const listSignatures = async (userId: string): Promise<LeanSignature[]> => {
   return findSignaturesByUserId(userId);
 };
 
-export const getDefaultSignatureForAccount = async (userId: string, accountId?: string) => {
+export const getDefaultSignatureForAccount = async (
+  userId: string,
+  accountId?: string,
+): Promise<LeanSignature | null> => {
   if (accountId) {
     const user = await findUserById(userId);
     const account = user?.connectedAccounts?.find(
@@ -230,7 +125,10 @@ export const getDefaultSignatureForAccount = async (userId: string, accountId?: 
   return findDefaultSignature(userId);
 };
 
-export const createSignatureForUser = async (userId: string, body: CreateSignatureBody) => {
+export const createSignatureForUser = async (
+  userId: string,
+  body: CreateSignatureBody,
+): Promise<SignatureDocument> => {
   if (body.isDefault) {
     await clearDefaultSignatures(userId);
   }
@@ -247,7 +145,7 @@ export const updateSignature = async (
   userId: string,
   signatureId: string,
   body: UpdateMySignatureBody,
-) => {
+): Promise<SignatureDocument> => {
   if (body.isDefault) {
     await clearDefaultSignatures(userId);
   }
@@ -262,7 +160,10 @@ export const updateSignature = async (
   return signature;
 };
 
-export const deleteSignature = async (userId: string, signatureId: string) => {
+export const deleteSignature = async (
+  userId: string,
+  signatureId: string,
+): Promise<SignatureDocument> => {
   const signature = await deleteSignatureByUserAndId(userId, signatureId);
   if (!signature) throw new NOT_FOUND_ERROR('Signature not found');
   return signature;

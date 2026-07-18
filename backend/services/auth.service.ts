@@ -110,15 +110,10 @@ const fetchGoogleProfile = async (accessToken: string): Promise<GoogleProfile> =
   return { email: data.email, name: data.name || data.email };
 };
 
-const persistUser = async (
-  profile: GoogleProfile,
-  tokens: GoogleTokenResponse,
-): Promise<UserDocument> => {
+const persistUser = async (profile: GoogleProfile): Promise<UserDocument> => {
   const user = await upsertUserByEmail(profile.email, {
     name: profile.name,
     email: profile.email,
-    googleAccessToken: tokens.access_token,
-    googleRefreshToken: tokens.refresh_token,
   });
 
   if (!user) throw new BAD_REQUEST_ERROR('Unable to persist user');
@@ -165,7 +160,7 @@ const refreshAppToken = async (refreshToken: string) => {
 const loginWithGoogle = async (authorizeCode: string) => {
   const googleTokens = await exchangeAuthorizationCode(authorizeCode);
   const profile = await fetchGoogleProfile(googleTokens.access_token);
-  const user = await persistUser(profile, googleTokens);
+  const user = await persistUser(profile);
   return createAppTokens(user);
 };
 
