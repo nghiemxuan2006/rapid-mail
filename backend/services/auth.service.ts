@@ -3,6 +3,7 @@ import settings from '../config/env';
 import { BAD_REQUEST_ERROR, UNAUTHORIZED_ERROR } from '../utils/error';
 import { UserDocument } from '../models/user.model';
 import { sendRequest } from '../utils/send-request';
+import { autoImportGmailSignatureForAccount } from './signature.service';
 import {
   findUserById,
   findUserByEmail,
@@ -287,9 +288,29 @@ const connectGmailAccount = async (userId: string, authorizeCode: string) => {
   }
 
   const updatedUser = await findUserById(userId);
+
+  // Auto-import the account's Gmail signature — never blocks the connect flow.
+  let signatureImported = false;
+  const connectedAccount = (updatedUser?.connectedAccounts || []).find(
+    (acc: any) => acc.email === profile.email && acc.provider === 'gmail',
+  );
+  if (connectedAccount) {
+    try {
+      const signature = await autoImportGmailSignatureForAccount(
+        userId,
+        connectedAccount._id.toString(),
+        profile.email,
+      );
+      signatureImported = signature !== null;
+    } catch (error) {
+      console.error('Failed to auto-import Gmail signature on connect', error);
+    }
+  }
+
   return {
     activeAccountId: updatedUser?.activeAccountId || null,
     connectedAccounts: mapAccounts(updatedUser?.connectedAccounts || []),
+    signatureImported,
   };
 };
 

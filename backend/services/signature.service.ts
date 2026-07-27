@@ -21,6 +21,15 @@ import { CreateSignatureBody, UpdateMySignatureBody } from '../schema/signature.
 const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
 const GMAIL_SEND_AS_ENDPOINT = 'https://gmail.googleapis.com/gmail/v1/users/me/settings/sendAs';
 
+type GmailSendAs = {
+  sendAsEmail: string;
+  displayName?: string;
+  signature?: string;
+  isPrimary?: boolean;
+  isDefault?: boolean;
+  replyToAddress?: string;
+};
+
 const ensureGoogleConfig = () => {
   if (!settings.GOOGLE_CLIENT_ID || !settings.GOOGLE_CLIENT_SECRET) {
     throw new BAD_REQUEST_ERROR('Google OAuth configuration is missing');
@@ -57,7 +66,7 @@ const refreshGoogleAccessToken = async (refreshToken: string): Promise<string> =
 export const importGmailSignaturesByAccount = async (
   userId: string,
   accountId: string,
-): Promise<unknown[]> => {
+): Promise<GmailSendAs[]> => {
   const user = await findUserById(userId);
   if (!user) throw new UNAUTHORIZED_ERROR('User not found');
 
@@ -94,8 +103,39 @@ export const importGmailSignaturesByAccount = async (
     );
   }
 
-  const data = response.data as { sendAs?: unknown[] };
+  const data = response.data as { sendAs?: GmailSendAs[] };
   return data.sendAs || [];
+};
+
+// ─── Auto-import the account's Gmail signature at connect time ────────────────
+// Creates an app-managed signature from the account's primary sendAs signature.
+// Never overwrites an existing signature for that email, never sets it as default.
+// Returns the created signature, or null when nothing was imported.
+export const autoImportGmailSignatureForAccount = async (
+  userId: string,
+  accountId: string,
+  email: string,
+): Promise<SignatureDocument | null> => {
+  const sendAsList = await importGmailSignaturesByAccount(userId, accountId);
+
+  const alias =
+    sendAsList.find((s) => s.isPrimary) ??
+    sendAsList.find((s) => s.sendAsEmail === email) ??
+    sendAsList[0];
+
+  const content = alias?.signature?.trim();
+  if (!content) return null;
+
+  const existing = await findSignatureByEmail(userId, email);
+  if (existing) return null;
+
+  return createSignatureForUser(userId, {
+    name: alias?.displayName || email,
+    content: alias?.signature ?? '',
+    sourceEmail: email,
+    provider: 'gmail',
+    isDefault: false,
+  });
 };
 
 // ─── App-managed signatures (MongoDB) ────────────────────────────────────────
