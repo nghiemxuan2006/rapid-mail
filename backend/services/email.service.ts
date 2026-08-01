@@ -9,6 +9,7 @@ import { findSignatureByEmail, findDefaultSignature } from '../repositories/sign
 import { sendRequest } from '../utils/send-request';
 import { readFile } from './file-storage.service';
 import { cleanSignatureHtml } from '../utils/clean-signature-html';
+import { normalizeEmailHtml } from '../utils/normalize-email-html';
 
 type InlineImage = {
   contentId: string;
@@ -318,7 +319,9 @@ export const sendEmail = async ({
   );
 
   const cleanedSignature = signature ? cleanSignatureHtml(signature) : '';
-  const bodyContent = content.trim() + (cleanedSignature ? '\n\n' + cleanedSignature : '');
+  // Editor reset margin của <p> bằng CSS; mail client thì không — inline lại trước khi gửi
+  const normalizedContent = normalizeEmailHtml(content.trim());
+  const bodyContent = normalizedContent + (cleanedSignature ? '\n\n' + cleanedSignature : '');
 
   // Sending requires an active connected account — no more fallback to a login-level Google token
   const activeAccount = user.activeAccountId

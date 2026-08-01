@@ -120,6 +120,8 @@ export type CampaignUpdateInput = Campaign & {
 export const recipientSchema = yup.object({
     Email: yup
         .string()
+        // trim trước khi kiểm tra: "   " sẽ báo "Email is required" thay vì lỗi format
+        .trim()
         .required('Email is required')
         .matches(
             /^(?!\.)(?!.*\.\.)([A-Za-z0-9_'+\-.]*)[[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9-]*\.)+[A-Za-z]{2,}$/,
@@ -130,8 +132,10 @@ export const recipientSchema = yup.object({
 export const createRecipientFieldSchema = (fieldName: string) =>
     yup
         .string()
-        .required(`${fieldName} is required`)
-        .trim(`${fieldName} must not have leading/trailing spaces`);
+        // .trim() ở chế độ non-strict là transform, không phải test —
+        // khoảng trắng thừa được cắt tự động rồi mới kiểm tra required
+        .trim()
+        .required(`${fieldName} is required`);
 
 export const campaignSaveSchema = yup.object({
     name: yup.string().trim().required('Please enter a campaign name'),
@@ -144,38 +148,38 @@ export const campaignSaveSchema = yup.object({
 
 /**
  * Validate all recipients against their dynamic fields.
- * Returns a map of { recipientId: { fieldName: errorMessage } }
+ * Returns a map of { recipientId: { fieldName: errorMessage } } plus the
+ * sanitized recipients (giá trị đã được trim) để caller lưu xuống DB.
  */
 export const validateRecipients = async (
     recipients: Recipient[],
     fieldNames: string[],
-): Promise<{ errors: Record<string, Record<string, string>>; hasErrors: boolean }> => {
+): Promise<{
+    errors: Record<string, Record<string, string>>;
+    hasErrors: boolean;
+    sanitized: Recipient[];
+}> => {
     const errors: Record<string, Record<string, string>> = {};
+    const sanitized: Recipient[] = [];
     let hasErrors = false;
 
     for (const recipient of recipients) {
         const recipientErrors: Record<string, string> = {};
+        const sanitizedRecipient: Recipient = { ...recipient };
 
         for (const fieldName of fieldNames) {
             const raw = recipient[fieldName] || '';
 
-            if (fieldName.toLowerCase() === 'email') {
-                try {
-                    await recipientSchema.validateAt('Email', { Email: raw });
-                } catch (err) {
-                    if (err instanceof yup.ValidationError) {
-                        recipientErrors[fieldName] = err.message;
-                        hasErrors = true;
-                    }
-                }
-            } else {
-                try {
-                    await createRecipientFieldSchema(fieldName).validate(raw);
-                } catch (err) {
-                    if (err instanceof yup.ValidationError) {
-                        recipientErrors[fieldName] = err.message;
-                        hasErrors = true;
-                    }
+            try {
+                const casted =
+                    fieldName.toLowerCase() === 'email'
+                        ? await recipientSchema.validateAt('Email', { Email: raw })
+                        : await createRecipientFieldSchema(fieldName).validate(raw);
+                sanitizedRecipient[fieldName] = casted ?? '';
+            } catch (err) {
+                if (err instanceof yup.ValidationError) {
+                    recipientErrors[fieldName] = err.message;
+                    hasErrors = true;
                 }
             }
         }
@@ -183,7 +187,8 @@ export const validateRecipients = async (
         if (Object.keys(recipientErrors).length > 0) {
             errors[recipient.id] = recipientErrors;
         }
+        sanitized.push(sanitizedRecipient);
     }
 
-    return { errors, hasErrors };
+    return { errors, hasErrors, sanitized };
 };
