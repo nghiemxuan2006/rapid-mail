@@ -2,10 +2,15 @@ import Campaign, { EmailJob } from '../models/campaign.model';
 import { createConsumeChannel, getQueueName, publishEmailJob } from '../services/rabbitmq.service';
 import { sendEmail } from '../services/email.service';
 import { readCampaignConfig, readFile } from '../services/file-storage.service';
-import User from '../models/user.model';
+import User, { ConnectedAccount } from '../models/user.model';
 import logger from '../utils/wiston-log';
 import { Recipient } from '../schema/common.schema';
 import { setupGmailWatch } from '../services/gmail-watch.service';
+import {
+  markEmailJobFailed,
+  markEmailJobSent,
+  updateEmailJob,
+} from '../repositories/campaign.repository';
 
 type QueueMessage = {
   campaignId: string;
@@ -24,15 +29,6 @@ const processContent = (content: string, recipient: Recipient): string => {
     );
   });
   return result;
-};
-
-const updateJobStatus = async (campaignId: string, jobId: string, update: Partial<EmailJob>) => {
-  const setFields: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(update)) {
-    setFields[`email_jobs.${jobId}.${key}`] = value;
-  }
-  setFields[`email_jobs.${jobId}.updatedAt`] = new Date();
-  await Campaign.findByIdAndUpdate(campaignId, { $set: setFields });
 };
 
 const checkAndFinalizeCampaign = async (campaignId: string) => {
@@ -89,7 +85,7 @@ export const startConsumer = async (maxRetries: number): Promise<void> => {
 
       if (!job.recipientData?.['Email']) {
         logger.error(`Job ${jobId} missing recipient email, marking as failed`);
-        await updateJobStatus(campaignId, jobId, {
+        await markEmailJobFailed(campaignId, jobId, {
           status: 'failed',
           error: 'Missing recipient email',
         });
@@ -124,7 +120,7 @@ export const startConsumer = async (maxRetries: number): Promise<void> => {
         attachments: emailAttachments,
       });
 
-      await updateJobStatus(campaignId, jobId, {
+      await markEmailJobSent(campaignId, jobId, {
         status: 'sent',
         sentAt: new Date(),
         threadId: sendResult.threadId ?? null,
@@ -132,37 +128,55 @@ export const startConsumer = async (maxRetries: number): Promise<void> => {
       });
       logger.info(`Job ${jobId} sent successfully`);
 
-      // Setup Gmail watch if account doesn't have an active one
-      const freshUser = await User.findById(user._id);
-      if (freshUser) {
-        const activeAcc = freshUser.connectedAccounts.find(
-          (a: any) =>
-            a._id.toString() === freshUser.activeAccountId?.toString() && a.provider === 'gmail',
-        );
-        if (activeAcc && (!activeAcc.gmailWatchExpiry || activeAcc.gmailWatchExpiry < new Date())) {
-          await setupGmailWatch(
-            freshUser._id.toString(),
-            activeAcc._id.toString(),
-            activeAcc.accessToken,
-            activeAcc.refreshToken,
+      // Setup Gmail watch if account doesn't have an active one.
+      // Bookkeeping sau khi gửi phải được cô lập: email đã gửi thành công và đã được
+      // tính vào sentCount, nên lỗi ở đây (refresh token hết hạn, Gmail 5xx, DB lỗi
+      // tạm thời) không được rơi xuống handler xử lý job thất bại và ghi đè
+      // status 'sent' thành 'failed'.
+      try {
+        const freshUser = await User.findById(user._id);
+        if (freshUser) {
+          const activeAcc = freshUser.connectedAccounts.find(
+            (a: ConnectedAccount) =>
+              a._id.toString() === freshUser.activeAccountId?.toString() && a.provider === 'gmail',
           );
+          if (
+            activeAcc &&
+            (!activeAcc.gmailWatchExpiry || activeAcc.gmailWatchExpiry < new Date())
+          ) {
+            await setupGmailWatch(
+              freshUser._id.toString(),
+              activeAcc._id.toString(),
+              activeAcc.accessToken,
+              activeAcc.refreshToken,
+            );
+          }
         }
+      } catch (watchErr: unknown) {
+        const watchErrorMessage =
+          watchErr instanceof Error ? watchErr.message : String(watchErr);
+        logger.warn('Post-send Gmail watch setup failed, job remains sent', {
+          campaignId,
+          jobId,
+          error: watchErrorMessage,
+        });
       }
-    } catch (err: any) {
-      logger.error(`Job ${jobId} failed`, { error: err.message });
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      logger.error(`Job ${jobId} failed`, { error: errorMessage });
 
       if (retryCount < maxRetries) {
         const delayMs = 5 * 60 * 1000 * (retryCount + 1);
-        await updateJobStatus(campaignId, jobId, {
+        await updateEmailJob(campaignId, jobId, {
           retryCount: retryCount + 1,
-          error: err.message,
+          error: errorMessage,
         });
         publishEmailJob(campaignId, jobId, delayMs);
         logger.info(`Job ${jobId} queued for retry ${retryCount + 1}/${maxRetries}`);
       } else {
-        await updateJobStatus(campaignId, jobId, {
+        await markEmailJobFailed(campaignId, jobId, {
           status: 'failed',
-          error: err.message,
+          error: errorMessage,
         });
         logger.error(`Job ${jobId} permanently failed after ${maxRetries} retries`);
       }

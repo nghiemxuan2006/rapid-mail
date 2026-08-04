@@ -99,6 +99,8 @@ export interface Campaign {
     status?: CampaignStatus;
     sendMode?: SendMode | null;
     email_jobs?: Record<string, EmailJob>;
+    sentCount?: number;
+    repliedCount?: number;
     recipients: Recipient[];
     attachments?: Attachment[];
     signature?: string;

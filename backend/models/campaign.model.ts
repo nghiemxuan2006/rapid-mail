@@ -12,6 +12,7 @@ export type EmailJob = {
   retryCount: number;
   threadId: string | null;
   messageId: string | null;
+  hasReplied?: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -25,6 +26,8 @@ export type CampaignDocument = Omit<Campaign, 'user_id'> &
     status: CampaignStatus;
     sendMode: SendMode | null;
     email_jobs: Record<string, EmailJob>;
+    sentCount: number;
+    repliedCount: number;
     createdAt: Date;
     updatedAt: Date;
   };
@@ -58,6 +61,8 @@ const CampaignSchema = new Schema<CampaignDocument>(
       default: null,
     },
     email_jobs: { type: Schema.Types.Mixed, default: {} },
+    sentCount: { type: Number, default: 0 },
+    repliedCount: { type: Number, default: 0 },
   },
   { timestamps: true },
 );

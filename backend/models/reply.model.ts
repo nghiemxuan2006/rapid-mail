@@ -28,5 +28,6 @@ const ReplySchema = new Schema<ReplyDocument>({
 
 ReplySchema.index({ userId: 1, isRead: 1 });
 ReplySchema.index({ threadId: 1 });
+ReplySchema.index({ campaignId: 1 });
 
 export default mongoose.model<ReplyDocument>('Reply', ReplySchema);

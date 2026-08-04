@@ -10,6 +10,11 @@ on:
       - 'infrastructure/scripts/deploy.sh'
   workflow_dispatch:
 
+# Same group as deploy-frontend.yml — see the note there.
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest

@@ -11,6 +11,15 @@ on:
       - 'infrastructure/nginx/**'
   workflow_dispatch:
 
+# Shared with deploy-backend.yml on purpose: both stacks live on the same EC2
+# box and share one checkout, so a push touching frontend/ and backend/ must
+# deploy them one after the other, never at once.
+# cancel-in-progress stays false — killing a deploy mid-flight is exactly what
+# leaves half-recreated containers behind.
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest

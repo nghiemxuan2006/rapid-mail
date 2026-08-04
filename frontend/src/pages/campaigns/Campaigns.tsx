@@ -231,6 +231,24 @@ const Campaigns = () => {
     drafts: campaigns.filter((c) => !c.status || c.status === 'draft').length,
   };
 
+  // Campaign chưa gửi thì chưa có số liệu để hiển thị
+  const isDraft = (campaign: Campaign) => !campaign.status || campaign.status === 'draft';
+
+  const formatSent = (campaign: Campaign) => {
+    if (isDraft(campaign)) return '-';
+    return `${campaign.sentCount ?? 0}/${campaign.recipients?.length ?? 0}`;
+  };
+
+  const formatReplied = (campaign: Campaign) => {
+    if (isDraft(campaign)) return '-';
+    const sent = campaign.sentCount ?? 0;
+    const replied = campaign.repliedCount ?? 0;
+    // Mẫu số là sentCount chứ không phải tổng recipients: chỉ người thực sự
+    // nhận được mail mới có cơ hội reply.
+    const rate = sent > 0 ? Math.round((replied / sent) * 100) : 0;
+    return `${replied} (${rate}%)`;
+  };
+
   const getStatusBadge = (status?: string) => {
     switch (status) {
       case 'completed':
@@ -336,6 +354,8 @@ const Campaigns = () => {
                 <TableHead>Campaign Name</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Recipients</TableHead>
+                <TableHead>Sent</TableHead>
+                <TableHead>Replied</TableHead>
                 <TableHead>Created At</TableHead>
                 <TableHead className="text-center">Details</TableHead>
                 <TableHead className="w-17.5">Action</TableHead>
@@ -344,13 +364,13 @@ const Campaigns = () => {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     Loading campaigns...
                   </TableCell>
                 </TableRow>
               ) : currentCampaigns.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     {searchQuery ? 'No campaigns found' : 'No campaigns yet. Create your first campaign!'}
                   </TableCell>
                 </TableRow>
@@ -364,6 +384,8 @@ const Campaigns = () => {
                     <TableCell className="font-medium">{campaign.name}</TableCell>
                     <TableCell>{getStatusBadge(campaign.status)}</TableCell>
                     <TableCell>{campaign.recipients?.length ?? 0}</TableCell>
+                    <TableCell>{formatSent(campaign)}</TableCell>
+                    <TableCell>{formatReplied(campaign)}</TableCell>
                     <TableCell>{utcToLocal(campaign.createdAt)}</TableCell>
                     <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                       {campaign.status === 'completed' || campaign.status === 'sending' || campaign.status === 'failed' ? (

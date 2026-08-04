@@ -1,6 +1,9 @@
 import { Request, Response } from 'express';
 import { EmailJob } from '../models/campaign.model';
-import { findCampaignsByUserIdFull } from '../repositories/campaign.repository';
+import {
+  findCampaignsByUserIdFull,
+  markEmailJobReplied,
+} from '../repositories/campaign.repository';
 import logger from '../utils/wiston-log';
 import { findUserByConnectedAccountEmail, updateUserById } from '../repositories/user.repository';
 import { findReplyByMessageId, createReply } from '../repositories/reply.repository';
@@ -180,6 +183,10 @@ export const handlePubSubWebhook = async (req: Request, res: Response): Promise<
 
       const exists = await findReplyByMessageId(msg.id);
       if (exists) {
+        // markEmailJobReplied is idempotent, so calling it here costs nothing and
+        // self-heals the case where createReply succeeded but the counter update
+        // was lost (crash or error between the two non-transactional writes).
+        await markEmailJobReplied(match.campaignId, match.jobId);
         logger.info('Reply already recorded, skipping', { messageId: msg.id });
         continue;
       }
@@ -198,6 +205,15 @@ export const handlePubSubWebhook = async (req: Request, res: Response): Promise<
         isRead: false,
         userId: user._id,
       });
+
+      const isFirstReply = await markEmailJobReplied(match.campaignId, match.jobId);
+      if (!isFirstReply) {
+        logger.info('Reply is not the first from this recipient, repliedCount not incremented', {
+          campaignId: match.campaignId,
+          jobId: match.jobId,
+          recipientEmail: match.recipientEmail,
+        });
+      }
 
       logger.info('Reply saved', {
         messageId: msg.id,

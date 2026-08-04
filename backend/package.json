@@ -13,7 +13,8 @@
     "worker": "tsx -r dotenv/config worker/index.ts dotenv_config_path=.env",
     "worker:test": "tsx -r dotenv/config worker/index.ts dotenv_config_path=.env.test",
     "worker:prod": "tsx -r dotenv/config worker/index.ts dotenv_config_path=.env.prod",
-    "seed": "tsx -r dotenv/config scripts/seed.ts dotenv_config_path=.env"
+    "seed": "tsx -r dotenv/config scripts/seed.ts dotenv_config_path=.env",
+    "backfill:counters": "tsx -r dotenv/config scripts/backfill-campaign-counters.ts dotenv_config_path=.env"
   },
   "keywords": [],
   "author": "",
