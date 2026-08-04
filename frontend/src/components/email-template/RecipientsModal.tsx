@@ -172,14 +172,14 @@ const RecipientsModal = ({
             localFields.some(field => (recipient[field.name] || '').trim() !== '')
         );
         const fieldNames = localFields.map(f => f.name);
-        const { errors, hasErrors } = await validateRecipients(filled, fieldNames);
+        const { errors, hasErrors, sanitized } = await validateRecipients(filled, fieldNames);
         if (hasErrors) {
             setValidationErrors(errors);
             showNotifications('error', 'Please fix validation errors before saving');
             return;
         }
         setValidationErrors({});
-        onSave(filled, localFields);
+        onSave(sanitized, localFields);
         onClose();
     };
 
@@ -218,10 +218,6 @@ const RecipientsModal = ({
                 {/* Actions */}
                 <div className="flex items-center justify-between gap-4 flex-wrap">
                     <div className="flex gap-2">
-                        <Button onClick={handleAddRecipient} size="sm">
-                            <Plus className="size-4 mr-2" />
-                            Add Recipient
-                        </Button>
                         <div className="relative">
                             <Button onClick={() => fileInputRef.current?.click()} variant="outline" size="sm">
                                 <Upload className="size-4 mr-2" />
@@ -291,6 +287,10 @@ const RecipientsModal = ({
                                 </PopoverContent>
                             </Popover>
                         </div>
+                        <Button onClick={handleAddRecipient} size="sm">
+                            <Plus className="size-4 mr-2" />
+                            Add Recipient
+                        </Button>
                         <input ref={fileInputRef} type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
                         {someSelected && (
                             <Button onClick={handleDeleteSelected} variant="outline" size="sm">
@@ -375,7 +375,7 @@ const RecipientsModal = ({
                                                             <Input
                                                                 value={value}
                                                                 onChange={(e) => handleRecipientFieldChange(recipient.id, field.name, e.target.value)}
-                                                                placeholder={`Enter ${field.name.toLowerCase()}`}
+                                                                placeholder={`${field.name} is required`}
                                                                 className={errorMsg
                                                                     ? 'border-2 border-destructive focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-destructive bg-destructive/10 pr-10'
                                                                     : 'border-0 shadow-none focus-visible:ring-1 bg-transparent hover:bg-background/50 transition-colors'

@@ -11,11 +11,14 @@ export interface AuthState {
     user: {
         email?: string
         name?: string
+        role?: 'user' | 'admin'
+        isActive?: boolean
         connectedAccounts?: ConnectedAccount[]
         activeAccountId?: string | null
     } | null
     loading: boolean
     error: string | null
+    profileChecked: boolean
 }
 
 // Khởi tạo state từ localStorage ngay từ đầu
@@ -27,6 +30,7 @@ const getInitialAuthState = (): AuthState => {
         user: null,
         loading: false,
         error: null,
+        profileChecked: false,
     }
 }
 
@@ -58,6 +62,7 @@ const authSlice = createSlice({
             state.isAuthenticated = false
             state.user = null
             state.error = null
+            state.profileChecked = false
 
             // Xóa tokens khỏi localStorage
             localStorage.removeItem('access_token')
@@ -69,6 +74,9 @@ const authSlice = createSlice({
         setError: (state, action: PayloadAction<string | null>) => {
             state.error = action.payload
         },
+        setProfileChecked: (state, action: PayloadAction<boolean>) => {
+            state.profileChecked = action.payload
+        },
         initializeAuth: (state) => {
             // Kiểm tra token trong localStorage khi app khởi động
             const token = localStorage.getItem('access_token')
@@ -79,11 +87,13 @@ const authSlice = createSlice({
         },
         setUserProfile: (
             state,
-            action: PayloadAction<{ email?: string; name?: string; connectedAccounts?: ConnectedAccount[]; activeAccountId?: string | null }>
+            action: PayloadAction<{ email?: string; name?: string; role?: 'user' | 'admin'; isActive?: boolean; connectedAccounts?: ConnectedAccount[]; activeAccountId?: string | null }>
         ) => {
             if (state.user) {
                 state.user.email = action.payload.email ?? state.user.email
                 state.user.name = action.payload.name ?? state.user.name
+                state.user.role = action.payload.role ?? state.user.role
+                state.user.isActive = action.payload.isActive ?? state.user.isActive
                 if (action.payload.connectedAccounts !== undefined) {
                     state.user.connectedAccounts = action.payload.connectedAccounts
                 }
@@ -94,6 +104,8 @@ const authSlice = createSlice({
                 state.user = {
                     email: action.payload.email,
                     name: action.payload.name,
+                    role: action.payload.role,
+                    isActive: action.payload.isActive,
                     connectedAccounts: action.payload.connectedAccounts,
                     activeAccountId: action.payload.activeAccountId,
                 }
@@ -115,6 +127,6 @@ const authSlice = createSlice({
     },
 })
 
-export const { setCredentials, logout, setLoading, setError, initializeAuth, setUserProfile, setConnectedAccounts, setActiveAccountId } = authSlice.actions
+export const { setCredentials, logout, setLoading, setError, initializeAuth, setUserProfile, setConnectedAccounts, setActiveAccountId, setProfileChecked } = authSlice.actions
 
 export default authSlice.reducer

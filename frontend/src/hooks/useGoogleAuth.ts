@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGoogleLogin } from '@react-oauth/google'
-import { CLIENT_ID, GMAIL_SCOPES, BACKEND_BASE_URL } from '@/constants'
+import { CLIENT_ID, BACKEND_BASE_URL } from '@/constants'
 import { useAppDispatch } from '@/app/hook'
 import { setCredentials, setError as setAuthError, setLoading as setAuthLoading } from '@/features/auth/authSlice'
 
@@ -64,8 +64,7 @@ export function useGoogleAuth() {
 
     const login = useGoogleLogin({
         flow: 'auth-code',
-        scope: GMAIL_SCOPES.join(' '),
-        // scope: 'openid email profile',
+        scope: 'openid email profile',
         onSuccess: (response) => {
             console.log("🚀 ~ useGoogleAuth ~ response:", response)
             setLoading(false)

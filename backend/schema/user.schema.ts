@@ -11,10 +11,10 @@ export const connectedAccountSchema = z.object({
 export const userSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().email('Invalid email address'),
-  googleAccessToken: z.string().min(1),
-  googleRefreshToken: z.string().min(1),
   connectedAccounts: z.array(connectedAccountSchema).optional(),
   activeAccountId: z.string().optional().nullable(),
+  role: z.enum(['user', 'admin']).default('user'),
+  isActive: z.boolean().default(true),
 });
 
 // ===== Types =====

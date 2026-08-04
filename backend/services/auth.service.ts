@@ -3,6 +3,7 @@ import settings from '../config/env';
 import { BAD_REQUEST_ERROR, UNAUTHORIZED_ERROR } from '../utils/error';
 import { UserDocument } from '../models/user.model';
 import { sendRequest } from '../utils/send-request';
+import { autoImportGmailSignatureForAccount } from './signature.service';
 import {
   findUserById,
   findUserByEmail,
@@ -110,15 +111,10 @@ const fetchGoogleProfile = async (accessToken: string): Promise<GoogleProfile> =
   return { email: data.email, name: data.name || data.email };
 };
 
-const persistUser = async (
-  profile: GoogleProfile,
-  tokens: GoogleTokenResponse,
-): Promise<UserDocument> => {
+const persistUser = async (profile: GoogleProfile): Promise<UserDocument> => {
   const user = await upsertUserByEmail(profile.email, {
     name: profile.name,
     email: profile.email,
-    googleAccessToken: tokens.access_token,
-    googleRefreshToken: tokens.refresh_token,
   });
 
   if (!user) throw new BAD_REQUEST_ERROR('Unable to persist user');
@@ -165,7 +161,7 @@ const refreshAppToken = async (refreshToken: string) => {
 const loginWithGoogle = async (authorizeCode: string) => {
   const googleTokens = await exchangeAuthorizationCode(authorizeCode);
   const profile = await fetchGoogleProfile(googleTokens.access_token);
-  const user = await persistUser(profile, googleTokens);
+  const user = await persistUser(profile);
   return createAppTokens(user);
 };
 
@@ -187,6 +183,8 @@ const getUserProfile = async (userId: string) => {
   return {
     email: user.email,
     name: user.name,
+    role: user.role,
+    isActive: user.isActive,
     activeAccountId: user.activeAccountId || null,
     connectedAccounts: (user.connectedAccounts || []).map((acc: any) => ({
       id: acc._id.toString(),
@@ -290,9 +288,29 @@ const connectGmailAccount = async (userId: string, authorizeCode: string) => {
   }
 
   const updatedUser = await findUserById(userId);
+
+  // Auto-import the account's Gmail signature — never blocks the connect flow.
+  let signatureImported = false;
+  const connectedAccount = (updatedUser?.connectedAccounts || []).find(
+    (acc: any) => acc.email === profile.email && acc.provider === 'gmail',
+  );
+  if (connectedAccount) {
+    try {
+      const signature = await autoImportGmailSignatureForAccount(
+        userId,
+        connectedAccount._id.toString(),
+        profile.email,
+      );
+      signatureImported = signature !== null;
+    } catch (error) {
+      console.error('Failed to auto-import Gmail signature on connect', error);
+    }
+  }
+
   return {
     activeAccountId: updatedUser?.activeAccountId || null,
     connectedAccounts: mapAccounts(updatedUser?.connectedAccounts || []),
+    signatureImported,
   };
 };
 

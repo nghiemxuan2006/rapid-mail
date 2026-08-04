@@ -1,7 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { extractToken } from '../utils/token';
-import { UNAUTHORIZED_ERROR } from '../utils/error';
+import { FORBIDDEN_ERROR, UNAUTHORIZED_ERROR } from '../utils/error';
 import { verifyAccessToken } from '../services/auth.service';
+import { findUserById } from '../repositories/user.repository';
 
 declare global {
   namespace Express {
@@ -11,7 +12,11 @@ declare global {
   }
 }
 
-export const verifyToken = async (req: Request, res: Response, next: NextFunction) => {
+export const verifyToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
   try {
     const accessToken =
       extractToken(req.header('Authorization')) || extractToken(req.header('Token'));
@@ -22,6 +27,15 @@ export const verifyToken = async (req: Request, res: Response, next: NextFunctio
 
     // Verify token using auth service
     const decoded = verifyAccessToken(accessToken);
+
+    const user = await findUserById((decoded as { sub: string }).sub);
+    if (!user) {
+      throw new UNAUTHORIZED_ERROR('User not found');
+    }
+    if (!user.isActive) {
+      throw new FORBIDDEN_ERROR('This account has been disabled');
+    }
+
     req.user = decoded;
 
     next();

@@ -184,7 +184,13 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     try {
       const result = await dispatch(connectGmailAccount(code)).unwrap();
       dispatch(setConnectedAccounts({ connectedAccounts: result.connectedAccounts, activeAccountId: result.activeAccountId }));
-      toast.success('Gmail account connected successfully!');
+      // Refresh app-managed signatures so an auto-imported signature shows immediately
+      dispatch(listSignaturesApi()).unwrap().then(setMongoSignatures).catch(() => {});
+      toast.success(
+        result.signatureImported
+          ? 'Gmail account connected — signature imported'
+          : 'Gmail account connected successfully!',
+      );
     } catch (err: any) {
       toast.error(err?.message || 'Failed to connect Gmail account');
     } finally {

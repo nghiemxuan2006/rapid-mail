@@ -3,8 +3,9 @@ import DailyRotateFile from 'winston-daily-rotate-file';
 import settings from '../config/env';
 
 // Define custom log format
-const logFormat = format.printf(({ level, message, timestamp, stack }) => {
-  return `${timestamp} [${level}] : ${stack || message}`;
+const logFormat = format.printf(({ level, message, timestamp, stack, ...meta }) => {
+  const metaStr = Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : '';
+  return `${timestamp} [${level}] : ${stack || message}${metaStr}`;
 });
 
 // creates a new Winston Logger

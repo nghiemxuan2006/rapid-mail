@@ -22,7 +22,7 @@ export const createCampaign = async (
   req: Request<{}, {}, CreateCampaignBody>,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
     const { name, subject, content, recipients } = req.body;
     const newCampaign = new Campaign({ user_id: req.user.sub, name, subject, content, recipients });
@@ -40,7 +40,11 @@ export const createCampaign = async (
   }
 };
 
-export const getAllCampaigns = async (req: Request, res: Response, next: NextFunction) => {
+export const getAllCampaigns = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
   try {
     const campaigns = await findCampaignsByUserId(req.user.sub);
     res.json({ message: 'Campaigns retrieved successfully', data: campaigns });
@@ -53,7 +57,7 @@ export const getCampaignById = async (
   req: Request<CampaignParams>,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
     const campaign = await findCampaignById(req.params.id);
     if (!campaign) {
@@ -98,7 +102,7 @@ export const deleteCampaignById = async (
   req: Request<CampaignParams>,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
     const campaign = await findCampaignById(req.params.id);
     if (!campaign) {
@@ -119,7 +123,7 @@ export const updateCampaign = async (
   req: Request<CampaignParams, {}, UpdateCampaignBody>,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
     const campaign = await findCampaignById(req.params.id);
     if (!campaign) {

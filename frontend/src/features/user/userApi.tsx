@@ -1,5 +1,12 @@
 import { createAsyncThunk } from '@reduxjs/toolkit'
 import { sendRequest } from '@/utils'
+import type { ConnectedAccount } from '@/features/auth/authSlice'
+
+export interface ConnectGmailResult {
+    activeAccountId: string | null
+    connectedAccounts: ConnectedAccount[]
+    signatureImported?: boolean
+}
 
 export const getUserProfile = createAsyncThunk(
     'user/getUserProfile',
@@ -9,7 +16,7 @@ export const getUserProfile = createAsyncThunk(
     }
 )
 
-export const connectGmailAccount = createAsyncThunk(
+export const connectGmailAccount = createAsyncThunk<ConnectGmailResult, string>(
     'user/connectGmail',
     async (authorizeCode: string, thunkApi) => {
         const res = await sendRequest(`/auth/connect/gmail?authorize_code=${encodeURIComponent(authorizeCode)}`, 'GET', {}, thunkApi)

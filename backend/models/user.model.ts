@@ -34,10 +34,10 @@ const UserSchema = new Schema<UserDocument>(
   {
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    googleAccessToken: { type: String, required: true },
-    googleRefreshToken: { type: String, required: true },
     connectedAccounts: { type: [ConnectedAccountSchema], default: [] },
     activeAccountId: { type: String, default: null },
+    role: { type: String, enum: ['user', 'admin'], default: 'user' },
+    isActive: { type: Boolean, default: true },
   },
   { timestamps: true },
 );

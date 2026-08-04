@@ -43,8 +43,18 @@ npm run preview      # Preview production build
 - **Always use built-in Tailwind classes** (e.g. `px-4`, `gap-2`, `text-sm`). Do not use arbitrary values like `px-[12px]`, `w-[300px]`, `text-[14px]`.
 - If no suitable class exists, create a reusable custom utility/class in the theme instead of using `...-[]`. Prioritize following the design system and Tailwind's standard scales (spacing, font size, etc.).
 
+### API layer (`src/features/{domain}/{domain}Api.tsx`)
+- One thunk per endpoint via `createAsyncThunk<ReturnType, ArgType>`, action type string `'api/verb-noun'` (e.g. `'api/create-signature'`), calling `sendRequest(path, method, payload, thunkApi)` from `@/utils`.
+- Request/response types (`interface`) are colocated in the same `*Api.tsx` file, not a separate `types/` directory — see `Signature`, `CreateSignaturePayload` in `src/features/signature/signatureApi.tsx`.
+- A `*Slice.tsx` is **not** mandatory — only add one when the domain needs shared/global state (e.g. `authSlice.tsx`, `campaignSlice.tsx`). If a screen only needs request status/result locally, consume the thunk's result in component state instead of adding a slice.
+- Slice action names are camelCase verbs (`setCredentials`, `setLoading`, `initializeAuth`) — Redux Toolkit + Immer, so reducers mutate state directly.
+
 ### Validation
-- **Always validate data with Yup** before submitting. Define schemas in `src/schema/` and validate against them before calling the API.
+- **Always validate data with Yup** before submitting. Define schemas in `src/schema/` (one file per form/domain, not per component).
+- Export both the TS `interface` and the `yup.ObjectSchema<Interface>` from the same file — see `FeedbackCreateInput` + `feedbackFormSchema` in `src/schema/feedback.ts`.
+
+### Comments
+- Inline comments may be written in Vietnamese or English — the existing codebase mixes both (e.g. `authSlice.tsx`). Match the surrounding file's language rather than converting wholesale.
 
 ### Backend
-The companion backend lives at `../backend/`. API base path is `/v1`. Key endpoints: `/auth/*`, `/campaigns/*`, `/signatures/*`, `/emails/*`.
+The companion backend lives at `../backend/`. API base path is `/v1`. Key endpoints: `/auth/*`, `/campaigns/*`, `/signatures/*`, `/emails/*`. See `../backend/CLAUDE.md` for backend response shape and error conventions.

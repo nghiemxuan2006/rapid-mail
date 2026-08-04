@@ -101,18 +101,18 @@ export const startConsumer = async (maxRetries: number): Promise<void> => {
       const user = await User.findById(campaign.user_id);
       if (!user) throw new Error(`User not found for campaign ${campaignId}`);
 
-      const config = readCampaignConfig(campaignId);
+      const config = await readCampaignConfig(campaignId);
       const signature = config?.signature ?? '';
 
       const personalizedContent = processContent(campaign.content, job.recipientData as Recipient);
 
       let emailAttachments;
       if (campaign.attachments && campaign.attachments.length > 0) {
-        emailAttachments = campaign.attachments.map((att) => ({
+        emailAttachments = await Promise.all(campaign.attachments.map(async (att) => ({
           filename: att.filename,
           mimeType: att.mimeType,
-          content: readFile(campaignId, att.storedName),
-        }));
+          content: await readFile(campaignId, att.storedName),
+        })));
       }
 
       const sendResult = await sendEmail({
@@ -144,6 +144,7 @@ export const startConsumer = async (maxRetries: number): Promise<void> => {
             freshUser._id.toString(),
             activeAcc._id.toString(),
             activeAcc.accessToken,
+            activeAcc.refreshToken,
           );
         }
       }

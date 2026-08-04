@@ -3,16 +3,13 @@ import logger from '../utils/wiston-log';
 import settings from '../config/env';
 import { UserDocument } from '../models/user.model';
 import { Recipient } from '../schema/common.schema';
-import {
-  findUserById,
-  updateUserConnectedAccountToken,
-  updateUserById,
-} from '../repositories/user.repository';
+import { findUserById, updateUserConnectedAccountToken } from '../repositories/user.repository';
 import { findCampaignById } from '../repositories/campaign.repository';
 import { findSignatureByEmail, findDefaultSignature } from '../repositories/signature.repository';
 import { sendRequest } from '../utils/send-request';
 import { readFile } from './file-storage.service';
 import { cleanSignatureHtml } from '../utils/clean-signature-html';
+import { normalizeEmailHtml } from '../utils/normalize-email-html';
 
 type InlineImage = {
   contentId: string;
@@ -132,7 +129,7 @@ const ensureGoogleConfig = () => {
   }
 };
 
-const refreshGoogleAccessToken = async (refreshToken: string): Promise<string> => {
+export const refreshGoogleAccessToken = async (refreshToken: string): Promise<string> => {
   ensureGoogleConfig();
 
   const payload = new URLSearchParams({
@@ -293,6 +290,14 @@ const sendWithGmailApi = async (accessToken: string, rawMessage: string) => {
   return { needRefresh: false, messageId: data.id, threadId: data.threadId ?? null } as const;
 };
 
+type SendEmailResult = {
+  content: string;
+  receivers: string[];
+  status: 'sent';
+  messageId: string | null;
+  threadId: string | null;
+};
+
 export const sendEmail = async ({
   content,
   receivers,
@@ -300,7 +305,7 @@ export const sendEmail = async ({
   subject,
   signature,
   attachments,
-}: EmailPayload) => {
+}: EmailPayload): Promise<SendEmailResult> => {
   if (!content || typeof content !== 'string' || !content.trim()) {
     throw new BAD_REQUEST_ERROR('content is required');
   }
@@ -314,34 +319,24 @@ export const sendEmail = async ({
   );
 
   const cleanedSignature = signature ? cleanSignatureHtml(signature) : '';
-  const bodyContent = content.trim() + (cleanedSignature ? '\n\n' + cleanedSignature : '');
+  // Editor reset margin của <p> bằng CSS; mail client thì không — inline lại trước khi gửi
+  const normalizedContent = normalizeEmailHtml(content.trim());
+  const bodyContent = normalizedContent + (cleanedSignature ? '\n\n' + cleanedSignature : '');
 
-  // Determine sending account: use active connected account if set, else fall back to login Google account
-  logger.info(
-    'sendEmail: activeAccountId=' +
-      user.activeAccountId +
-      ' connectedAccounts=' +
-      JSON.stringify(
-        (user.connectedAccounts || []).map((a: any) => ({
-          id: a._id.toString(),
-          provider: a.provider,
-          email: a.email,
-        })),
-      ),
-  );
+  // Sending requires an active connected account — no more fallback to a login-level Google token
   const activeAccount = user.activeAccountId
     ? (user.connectedAccounts || []).find(
         (acc: any) => acc._id.toString() === String(user.activeAccountId),
       )
     : null;
-  logger.info(
-    'sendEmail: activeAccount=' +
-      JSON.stringify(
-        activeAccount ? { provider: activeAccount.provider, email: activeAccount.email } : null,
-      ),
-  );
 
-  if (activeAccount && activeAccount.provider === 'outlook') {
+  if (!activeAccount) {
+    throw new BAD_REQUEST_ERROR(
+      'No active connected account. Connect and activate a sending account before sending email.',
+    );
+  }
+
+  if (activeAccount.provider === 'outlook') {
     // Send via Microsoft Graph / Outlook
     let accessToken = activeAccount.accessToken;
     let sendResult = await sendWithOutlookApi(
@@ -381,30 +376,22 @@ export const sendEmail = async ({
     };
   }
 
-  // Gmail path: use active Gmail connected account or login account
-  const gmailRefreshToken =
-    activeAccount?.provider === 'gmail' ? activeAccount.refreshToken : user.googleRefreshToken;
-
+  // Gmail path: active connected account is guaranteed at this point (provider must be 'gmail')
   const rawMessage = buildRawMessage(
-    activeAccount?.email || user.email,
+    activeAccount.email,
     uniqueReceivers,
     subject,
     bodyContent,
     attachments,
   );
 
-  let accessToken =
-    activeAccount?.provider === 'gmail' ? activeAccount.accessToken : user.googleAccessToken;
+  let accessToken = activeAccount.accessToken;
 
   let sendResult = await sendWithGmailApi(accessToken, rawMessage);
 
   if (sendResult.needRefresh) {
-    accessToken = await refreshGoogleAccessToken(gmailRefreshToken!);
-    if (activeAccount?.provider === 'gmail') {
-      await updateUserConnectedAccountToken(String(user._id), user.activeAccountId, accessToken);
-    } else {
-      await updateUserById(String(user._id), { googleAccessToken: accessToken });
-    }
+    accessToken = await refreshGoogleAccessToken(activeAccount.refreshToken!);
+    await updateUserConnectedAccountToken(String(user._id), user.activeAccountId, accessToken);
     sendResult = await sendWithGmailApi(accessToken, rawMessage);
   }
 
@@ -450,7 +437,10 @@ const processContent = (content: string, recipient: Recipient, fields: string[])
   return preview;
 };
 
-export const sendCampaignEmails = async ({ campaignId, userId }: SendCampaignPayload) => {
+export const sendCampaignEmails = async ({
+  campaignId,
+  userId,
+}: SendCampaignPayload): Promise<void> => {
   const user = await findUserById(userId);
   if (!user) {
     throw new UNAUTHORIZED_ERROR('User not found');
@@ -467,11 +457,11 @@ export const sendCampaignEmails = async ({ campaignId, userId }: SendCampaignPay
   // Load attachments from disk
   let emailAttachments: Attachment[] | undefined;
   if (campaign.attachments && campaign.attachments.length > 0) {
-    emailAttachments = campaign.attachments.map((att) => ({
+    emailAttachments = await Promise.all(campaign.attachments.map(async (att) => ({
       filename: att.filename,
       mimeType: att.mimeType,
-      content: readFile(campaignId, att.storedName),
-    }));
+      content: await readFile(campaignId, att.storedName),
+    })));
   }
 
   const activeAccount = user.activeAccountId

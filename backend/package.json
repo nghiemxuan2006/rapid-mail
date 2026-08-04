@@ -12,7 +12,8 @@
     "test": "tsx -r dotenv/config app.ts dotenv_config_path=.env.test",
     "worker": "tsx -r dotenv/config worker/index.ts dotenv_config_path=.env",
     "worker:test": "tsx -r dotenv/config worker/index.ts dotenv_config_path=.env.test",
-    "worker:prod": "tsx -r dotenv/config worker/index.ts dotenv_config_path=.env.prod"
+    "worker:prod": "tsx -r dotenv/config worker/index.ts dotenv_config_path=.env.prod",
+    "seed": "tsx -r dotenv/config scripts/seed.ts dotenv_config_path=.env"
   },
   "keywords": [],
   "author": "",

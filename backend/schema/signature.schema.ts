@@ -2,11 +2,6 @@ import { z } from 'zod';
 
 // ===== Request Schemas =====
 
-export const updateSignatureBodySchema = z.object({
-  sendAsEmail: z.string().email('Invalid email address'),
-  signature: z.string().min(1, 'Signature cannot be empty'),
-});
-
 export const createSignatureBodySchema = z.object({
   name: z.string().min(1, 'Name is required'),
   content: z.string().default(''),
@@ -22,6 +17,5 @@ export const updateMySignatureBodySchema = z.object({
 });
 
 // ===== Types =====
-export type UpdateSignatureBody = z.infer<typeof updateSignatureBodySchema>;
 export type CreateSignatureBody = z.infer<typeof createSignatureBodySchema>;
 export type UpdateMySignatureBody = z.infer<typeof updateMySignatureBodySchema>;
