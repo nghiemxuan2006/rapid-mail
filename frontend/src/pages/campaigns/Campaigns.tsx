@@ -239,6 +239,16 @@ const Campaigns = () => {
     return `${campaign.sentCount ?? 0}/${campaign.recipients?.length ?? 0}`;
   };
 
+  // Số user duy nhất đã mở mail. Đây luôn là cận dưới: mail client chặn ảnh
+  // (hoặc người nhận đọc ở chế độ không tải ảnh) thì không đếm được.
+  const formatOpened = (campaign: Campaign) => {
+    if (isDraft(campaign)) return '-';
+    const sent = campaign.sentCount ?? 0;
+    const opened = campaign.openedCount ?? 0;
+    const rate = sent > 0 ? Math.round((opened / sent) * 100) : 0;
+    return `${opened} (${rate}%)`;
+  };
+
   const formatReplied = (campaign: Campaign) => {
     if (isDraft(campaign)) return '-';
     const sent = campaign.sentCount ?? 0;
@@ -355,6 +365,7 @@ const Campaigns = () => {
                 <TableHead>Status</TableHead>
                 <TableHead>Recipients</TableHead>
                 <TableHead>Sent</TableHead>
+                <TableHead>Opened</TableHead>
                 <TableHead>Replied</TableHead>
                 <TableHead>Created At</TableHead>
                 <TableHead className="text-center">Details</TableHead>
@@ -364,13 +375,13 @@ const Campaigns = () => {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     Loading campaigns...
                   </TableCell>
                 </TableRow>
               ) : currentCampaigns.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     {searchQuery ? 'No campaigns found' : 'No campaigns yet. Create your first campaign!'}
                   </TableCell>
                 </TableRow>
@@ -385,6 +396,7 @@ const Campaigns = () => {
                     <TableCell>{getStatusBadge(campaign.status)}</TableCell>
                     <TableCell>{campaign.recipients?.length ?? 0}</TableCell>
                     <TableCell>{formatSent(campaign)}</TableCell>
+                    <TableCell>{formatOpened(campaign)}</TableCell>
                     <TableCell>{formatReplied(campaign)}</TableCell>
                     <TableCell>{utcToLocal(campaign.createdAt)}</TableCell>
                     <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>

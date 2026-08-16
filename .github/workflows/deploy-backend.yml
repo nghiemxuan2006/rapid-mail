@@ -48,6 +48,8 @@ jobs:
           RABBITMQ_URL=${{ secrets.RABBITMQ_URL }}
           GOOGLE_PUBSUB_TOPIC=${{ secrets.GOOGLE_PUBSUB_TOPIC }}
           GMAIL_WEBHOOK_SECRET=${{ secrets.GMAIL_WEBHOOK_SECRET }}
+          TRACKING_BASE_URL=${{secrets.TRACKING_BASE_URL}}
+          TRACKING_SECRET=${{secrets.TRACKING_SECRET}}
           EOF"
 
       - name: Deploy backend stack

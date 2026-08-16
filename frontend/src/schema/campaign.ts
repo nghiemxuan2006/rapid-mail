@@ -20,6 +20,7 @@ export interface RecipientDeliveryStatus {
     serverResponse?: string;
     retryHistory?: RetryAttempt[];
     recipientData?: Record<string, string>;
+    openedAt?: Date;
 }
 
 export interface CampaignStats {
@@ -89,6 +90,8 @@ export interface EmailJob {
     sentAt: string | null;
     error: string | null;
     retryCount: number;
+    hasOpened?: boolean;
+    openedAt?: string | null;
 }
 
 export interface Campaign {
@@ -101,6 +104,7 @@ export interface Campaign {
     email_jobs?: Record<string, EmailJob>;
     sentCount?: number;
     repliedCount?: number;
+    openedCount?: number;
     recipients: Recipient[];
     attachments?: Attachment[];
     signature?: string;

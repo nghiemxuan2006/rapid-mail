@@ -6,6 +6,7 @@ import User, { ConnectedAccount } from '../models/user.model';
 import logger from '../utils/wiston-log';
 import { Recipient } from '../schema/common.schema';
 import { setupGmailWatch } from '../services/gmail-watch.service';
+import { buildTrackingPixelHtml } from '../services/tracking.service';
 import {
   markEmailJobFailed,
   markEmailJobSent,
@@ -118,6 +119,7 @@ export const startConsumer = async (maxRetries: number): Promise<void> => {
         subject: campaign.subject,
         signature,
         attachments: emailAttachments,
+        trackingPixel: buildTrackingPixelHtml(campaignId, jobId),
       });
 
       await markEmailJobSent(campaignId, jobId, {

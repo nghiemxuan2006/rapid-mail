@@ -76,6 +76,7 @@ export const handlePubSubWebhook = async (req: Request, res: Response): Promise<
 
   try {
     const message = req.body?.message;
+    console.log("🚀 ~ handlePubSubWebhook ~ message:", message)
     if (!message?.data) {
       logger.warn('Pub/Sub webhook: missing message.data');
       return;

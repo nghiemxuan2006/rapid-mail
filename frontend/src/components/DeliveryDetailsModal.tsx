@@ -116,6 +116,21 @@ export function DeliveryDetailsModal({
                         </div>
                     )}
 
+                    {recipient.status === 'success' && (
+                        <div>
+                            <p className="text-sm font-medium text-muted-foreground mb-1">Opened</p>
+                            {recipient.openedAt ? (
+                                <p>
+                                    {recipient.openedAt.toLocaleDateString()} at{' '}
+                                    {recipient.openedAt.toLocaleTimeString()}
+                                </p>
+                            ) : (
+                                // Không có tín hiệu mở: có thể chưa đọc, hoặc đã đọc nhưng client chặn ảnh
+                                <p className="text-muted-foreground">Not tracked yet</p>
+                            )}
+                        </div>
+                    )}
+
                     {recipient.status === 'failed' && (
                         <>
                             <div>

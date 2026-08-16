@@ -15,6 +15,10 @@ const settings = {
   FILE_STORAGE_PATH: process.env.FILE_STORAGE_PATH,
   RABBITMQ_URL: process.env.RABBITMQ_URL || 'amqp://localhost:5672',
   GOOGLE_PUBSUB_TOPIC: process.env.GOOGLE_PUBSUB_TOPIC || '',
+  // URL public mà Gmail/Outlook của người nhận gọi tới để tải tracking pixel.
+  // Dev: dùng tunnel (ngrok/cloudflared). Prod: domain thật của backend.
+  TRACKING_BASE_URL: process.env.TRACKING_BASE_URL || '',
+  TRACKING_SECRET: process.env.TRACKING_SECRET || process.env.JWT_SECRET_KEY || 'your_jwt_secret',
 };
 
 export default settings;

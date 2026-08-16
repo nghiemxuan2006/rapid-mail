@@ -13,6 +13,9 @@ export type EmailJob = {
   threadId: string | null;
   messageId: string | null;
   hasReplied?: boolean;
+  hasOpened?: boolean;
+  openedAt?: Date | null;
+  openCount?: number;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -28,6 +31,7 @@ export type CampaignDocument = Omit<Campaign, 'user_id'> &
     email_jobs: Record<string, EmailJob>;
     sentCount: number;
     repliedCount: number;
+    openedCount: number;
     createdAt: Date;
     updatedAt: Date;
   };
@@ -63,6 +67,7 @@ const CampaignSchema = new Schema<CampaignDocument>(
     email_jobs: { type: Schema.Types.Mixed, default: {} },
     sentCount: { type: Number, default: 0 },
     repliedCount: { type: Number, default: 0 },
+    openedCount: { type: Number, default: 0 },
   },
   { timestamps: true },
 );

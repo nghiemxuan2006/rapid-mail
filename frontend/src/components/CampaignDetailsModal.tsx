@@ -111,6 +111,7 @@ export function CampaignDetailsModal({ open, onOpenChange, campaignId }: Campaig
                 failureReason: job.status === 'failed' ? parseFailureReason(job.error) : undefined,
                 errorMessage: job.error ?? undefined,
                 recipientData: job.recipientData,
+                openedAt: job.openedAt ? new Date(job.openedAt) : undefined,
             } satisfies RecipientDeliveryStatus;
         });
     }, [campaign?.email_jobs]);

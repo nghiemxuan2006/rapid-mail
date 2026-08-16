@@ -40,6 +40,8 @@ export type EmailBody = {
   subject: string;
   signature?: string;
   attachments?: Attachment[];
+  // HTML của tracking pixel, đã dựng sẵn bởi tracking.service. Rỗng/undefined = không track.
+  trackingPixel?: string;
 };
 
 export type EmailPayload = EmailBody & {
@@ -305,6 +307,7 @@ export const sendEmail = async ({
   subject,
   signature,
   attachments,
+  trackingPixel,
 }: EmailPayload): Promise<SendEmailResult> => {
   if (!content || typeof content !== 'string' || !content.trim()) {
     throw new BAD_REQUEST_ERROR('content is required');
@@ -321,7 +324,11 @@ export const sendEmail = async ({
   const cleanedSignature = signature ? cleanSignatureHtml(signature) : '';
   // Editor reset margin của <p> bằng CSS; mail client thì không — inline lại trước khi gửi
   const normalizedContent = normalizeEmailHtml(content.trim());
-  const bodyContent = normalizedContent + (cleanedSignature ? '\n\n' + cleanedSignature : '');
+  // Pixel đặt cuối body: mail client tải ảnh theo thứ tự, để cuối thì nội dung hiển thị trước.
+  const bodyContent =
+    normalizedContent +
+    (cleanedSignature ? '\n\n' + cleanedSignature : '') +
+    (trackingPixel ? '\n' + trackingPixel : '');
 
   // Sending requires an active connected account — no more fallback to a login-level Google token
   const activeAccount = user.activeAccountId

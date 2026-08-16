@@ -5,7 +5,7 @@ export const findCampaignById = (id: string): Promise<CampaignDocument | null> =
 
 export const findCampaignsByUserId = (userId: string): Promise<CampaignDocument[]> =>
   Campaign.find({ user_id: userId })
-    .select('name status recipients createdAt sentCount repliedCount')
+    .select('name status recipients createdAt sentCount repliedCount openedCount')
     .sort({ createdAt: -1 });
 
 export const findCampaignsByUserIdFull = (userId: string): Promise<CampaignDocument[]> =>
@@ -107,6 +107,38 @@ export const markEmailJobFailed = async (
 // Đánh dấu recipient của job đã reply và tăng repliedCount đúng một lần.
 // Một job ứng với đúng một recipient, nên cờ hasReplied cho ra ngữ nghĩa
 // "số user duy nhất đã reply" mà không cần đếm distinct.
+// Đánh dấu recipient của job đã mở mail và tăng openedCount đúng một lần.
+// Gmail proxy có thể fetch pixel nhiều lần (prefetch, mở lại, nhiều thiết bị) nên
+// filter `hasOpened != true` + $inc trong cùng một update giữ openedCount đúng nghĩa
+// "số user duy nhất đã mở". openCount trên từng job vẫn cộng dồn mọi lần fetch để
+// tiện debug, nhưng đừng coi nó là số lần mở thật — ảnh bị cache ở phía Google.
+//
+// Trả về true nếu lần gọi này là lần mở đầu tiên (openedCount vừa tăng).
+export const markEmailJobOpened = async (campaignId: string, jobId: string): Promise<boolean> => {
+  const jobPath = `email_jobs.${jobId}`;
+
+  const res = await Campaign.updateOne(
+    {
+      _id: campaignId,
+      [jobPath]: { $exists: true },
+      [`${jobPath}.hasOpened`]: { $ne: true },
+    },
+    {
+      $set: { [`${jobPath}.hasOpened`]: true, [`${jobPath}.openedAt`]: new Date() },
+      $inc: { openedCount: 1, [`${jobPath}.openCount`]: 1 },
+    },
+  );
+
+  if (res.matchedCount > 0) return true;
+
+  // Đã mở trước đó — chỉ cộng số lần fetch, không đụng openedCount.
+  await Campaign.updateOne(
+    { _id: campaignId, [jobPath]: { $exists: true } },
+    { $inc: { [`${jobPath}.openCount`]: 1 } },
+  );
+  return false;
+};
+
 export const markEmailJobReplied = async (
   campaignId: string,
   jobId: string,

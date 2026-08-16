@@ -7,6 +7,7 @@ import replyRoutes from './reply.router';
 import pubsubRoutes from './pubsub.router';
 import feedbackRoutes from './feedback.route';
 import adminRoutes from './admin.route';
+import trackingRoutes from './tracking.route';
 
 const router = express.Router();
 
@@ -17,5 +18,6 @@ router.use('/replies', replyRoutes);
 router.use('/webhooks', pubsubRoutes);
 router.use('/feedback', feedbackRoutes);
 router.use('/admin', adminRoutes);
+router.use('/t', trackingRoutes);
 
 export default router;
