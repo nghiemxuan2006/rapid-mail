@@ -1,7 +1,10 @@
 name: Setup SSL (Let's Encrypt)
 
-# Run ONCE after pointing the domain to the EC2 Elastic IP.
-# After the first run, cert auto-renews via cron on the EC2 instance.
+# Run after pointing the domain to the EC2 Elastic IP (safe to re-run).
+# Uses the webroot method: nginx keeps running and serves the ACME challenge
+# from /var/www/certbot, so renewals never need port 80 to be free.
+# After the first run, a daily cron runs `certbot renew`; the deploy hook copies
+# the new cert to the paths nginx mounts and reloads nginx.
 on:
   workflow_dispatch:
     inputs:
@@ -14,8 +17,16 @@ on:
         required: true
         default: nghiemxuan2006@gmail.com
 
+# Same group as the deploy workflows — this job also resets the EC2 checkout
+# and recreates nginx, so it must not overlap with a deploy.
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   setup-ssl:
+    # Only deploy branches: the job resets the EC2 checkout to this branch.
+    if: github.ref_name == 'test' || github.ref_name == 'dev'
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name }}
 
@@ -33,34 +44,62 @@ jobs:
         run: |
           ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} bash << 'EOF'
           set -e
+          DOMAIN="${{ inputs.domain }}"
+          BRANCH="${{ github.ref_name }}"
 
           # Install certbot
           sudo dnf install -y certbot cronie
           sudo systemctl enable --now crond
 
-          # Stop nginx temporarily so certbot can bind port 80
-          # docker stop rapid-mail-nginx || true
+          sudo mkdir -p /var/www/certbot /etc/ssl/certs /etc/ssl/private
+
+          # nginx mounts these files; if they don't exist yet Docker would create
+          # directories instead and nginx fails to start. Seed a self-signed pair.
+          if [ ! -f /etc/ssl/certs/nginx.crt ] || [ ! -f /etc/ssl/private/nginx.key ]; then
+            sudo openssl req -x509 -nodes -days 7 -newkey rsa:2048 \
+              -keyout /etc/ssl/private/nginx.key \
+              -out /etc/ssl/certs/nginx.crt \
+              -subj "/CN=$DOMAIN"
+          fi
+
+          # (Re)create nginx with the latest compose file so /var/www/certbot is
+          # mounted and the challenge is reachable on :80.
+          cd /home/ec2-user/rapid-mail
+          git fetch origin "$BRANCH"
+          git reset --hard origin/"$BRANCH"
+          docker compose -f frontend/docker-compose.yml up --build --no-deps -d nginx
+
+          # Deploy hook: certbot runs it only after a cert is actually issued or
+          # renewed, so a failed renewal never touches the files nginx uses.
+          sudo tee /usr/local/bin/rapid-mail-cert-deploy.sh > /dev/null << 'HOOK'
+          #!/bin/bash
+          set -e
+          cp "$RENEWED_LINEAGE/fullchain.pem" /etc/ssl/certs/nginx.crt
+          cp "$RENEWED_LINEAGE/privkey.pem"   /etc/ssl/private/nginx.key
+          docker exec rapid-mail-nginx nginx -s reload
+          HOOK
+          sudo chmod +x /usr/local/bin/rapid-mail-cert-deploy.sh
+
+          # A lineage first issued with --standalone keeps that authenticator for
+          # renewals; force one re-issue so the renewal config switches to webroot.
+          EXTRA_ARGS=""
+          if sudo grep -qs 'authenticator = standalone' "/etc/letsencrypt/renewal/$DOMAIN.conf"; then
+            EXTRA_ARGS="--force-renewal"
+          fi
 
           # Obtain cert
-          sudo certbot certonly --standalone \
-            -d "${{ inputs.domain }}" \
+          sudo certbot certonly --webroot -w /var/www/certbot \
+            -d "$DOMAIN" \
+            --cert-name "$DOMAIN" \
+            --deploy-hook /usr/local/bin/rapid-mail-cert-deploy.sh \
             --non-interactive \
             --agree-tos \
-            --email "${{ inputs.email }}"
+            --email "${{ inputs.email }}" \
+            $EXTRA_ARGS
 
-          # Point nginx to Let's Encrypt cert
-          CERT_PATH="/etc/letsencrypt/live/${{ inputs.domain }}"
-          sudo mkdir -p /etc/ssl/certs /etc/ssl/private
-          sudo cp "$CERT_PATH/fullchain.pem" /etc/ssl/certs/nginx.crt
-          sudo cp "$CERT_PATH/privkey.pem"   /etc/ssl/private/nginx.key
-
-          # Restart nginx
-          cd /home/ec2-user/rapid-mail
-          BRANCH=$(git rev-parse --abbrev-ref HEAD)
-          # docker compose -f frontend/docker-compose.yml up -d nginx
-
-          # Setup auto-renew cron (runs 1st of every month)
-          (sudo crontab -l 2>/dev/null; echo "0 0 1 * * certbot renew --quiet && cp /etc/letsencrypt/live/${{ inputs.domain }}/fullchain.pem /etc/ssl/certs/nginx.crt && cp /etc/letsencrypt/live/${{ inputs.domain }}/privkey.pem /etc/ssl/private/nginx.key && docker exec rapid-mail-nginx nginx -s reload") | sudo crontab -
+          # Auto-renew cron: daily, certbot only renews within 30 days of expiry.
+          # Drops any previous certbot line (the old monthly standalone one).
+          (sudo crontab -l 2>/dev/null | grep -v 'certbot renew' || true; echo "0 3 * * * certbot renew --quiet") | sudo crontab -
 
           echo "SSL setup complete"
           EOF

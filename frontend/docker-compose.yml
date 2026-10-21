@@ -25,6 +25,9 @@ services:
     volumes:
       - /etc/ssl/certs/nginx.crt:/etc/ssl/certs/nginx.crt:ro
       - /etc/ssl/private/nginx.key:/etc/ssl/private/nginx.key:ro
+      # certbot (webroot) writes ACME challenge files here; nginx serves them
+      # on :80 so renewals don't need to stop nginx.
+      - /var/www/certbot:/var/www/certbot:ro
     depends_on:
       - frontend
     networks:
